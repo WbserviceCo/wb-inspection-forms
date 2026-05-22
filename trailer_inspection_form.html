@@ -19,6 +19,7 @@
 <title>Trailer Refrigeration – PM Inspection</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 
 <style>
   :root {
@@ -447,7 +448,7 @@
   </div>
   <div style="display:flex;gap:10px">
     <button class="btn btn-outline" onclick="downloadPDF()">Download PDF</button>
-    <button class="btn btn-primary" id="upload-btn" onclick="uploadToDrive()">Save to Drive</button>
+    <button class="btn btn-primary" id="upload-btn" onclick="uploadToSharePoint()">Save to SharePoint</button>
   </div>
 </div>
 
@@ -714,90 +715,112 @@ function downloadPDF() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// GOOGLE DRIVE UPLOAD via Claude API + MCP
+// SHAREPOINT UPLOAD via Microsoft Graph + MSAL
 // ═══════════════════════════════════════════════════════════
-async function uploadToDrive() {
+const MSAL_CONFIG = {
+  auth: {
+    clientId:    '22d9de4e-e09c-4371-b423-a91bb093cf44',
+    authority:   'https://login.microsoftonline.com/b0acb5c9-5242-45c3-bc06-ea052523d68a',
+    redirectUri:  window.location.href.split('?')[0]
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+};
+const SHAREPOINT_SITE  = 'wbserv.sharepoint.com';
+const SHAREPOINT_PATH  = '/sites/WBEquipmentInpsection';
+const UPLOAD_FOLDER    = 'Trailer PM Inspections';
+
+const msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+
+async function getGraphToken() {
+  const scopes = ['https://graph.microsoft.com/Files.ReadWrite', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
+  // Try silent first
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    try {
+      const resp = await msalInstance.acquireTokenSilent({ scopes, account: accounts[0] });
+      return resp.accessToken;
+    } catch {}
+  }
+  // Fall back to popup
+  const resp = await msalInstance.loginPopup({ scopes });
+  return resp.accessToken;
+}
+
+async function uploadToSharePoint() {
   const btn = document.getElementById('upload-btn');
   btn.disabled = true;
   btn.textContent = 'Uploading...';
-  showToast('', 'Uploading to Google Drive...', 'Generating PDF and sending to Drive.');
+  showToast('', 'Connecting to SharePoint...', 'Sign in if prompted.');
 
   try {
-    const doc  = buildPDF();
-    const b64  = doc.output('datauristring').split(',')[1];
-    const equip = getFieldVal('f_equip') || 'Unknown';
-    const date  = getFieldVal('f_date')  || new Date().toISOString().split('T')[0];
+    const token    = await getGraphToken();
+    const doc      = buildPDF();
+    const pdfBytes = doc.output('arraybuffer');
+    const equip    = getFieldVal('f_equip') || 'Unknown';
+    const date     = getFieldVal('f_date')  || new Date().toISOString().split('T')[0];
     const fileName = `Trailer_PM_${equip}_${date}.pdf`;
 
-    const prompt = `Upload a PDF file to Google Drive.
+    // Get site ID
+    const siteResp = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_SITE}:${SHAREPOINT_PATH}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const siteData = await siteResp.json();
+    if (!siteData.id) throw new Error('Could not find SharePoint site.');
+    const siteId = siteData.id;
 
-File name: "${fileName}"
-Folder: Create or use a folder named "Trailer PM Inspections" in the root of Drive.
-Content: The file is a base64-encoded PDF.
+    // Get default drive
+    const driveResp = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/drive`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const driveData = await driveResp.json();
+    const driveId = driveData.id;
 
-Base64 data:
-${b64}
-
-Steps:
-1. Check if a folder named "Trailer PM Inspections" exists; if not, create it.
-2. Upload the PDF into that folder with the file name provided.
-3. Return ONLY a JSON object: {"success": true, "fileId": "...", "webViewLink": "..."} or {"success": false, "error": "..."}`;
-
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }],
-        mcp_servers: [{
-          type: 'url',
-          url: 'https://drivemcp.googleapis.com/mcp/v1',
-          name: 'google-drive'
-        }]
-      })
-    });
-
-    const data = await resp.json();
-
-    // Extract result from content blocks
-    let result = null;
-    for (const block of (data.content || [])) {
-      if (block.type === 'text') {
-        try {
-          const clean = block.text.replace(/```json|```/g,'').trim();
-          const parsed = JSON.parse(clean);
-          if (parsed.success !== undefined) { result = parsed; break; }
-        } catch {}
-      }
-      if (block.type === 'mcp_tool_result') {
-        try {
-          const txt = block.content?.[0]?.text || '';
-          const parsed = JSON.parse(txt);
-          if (parsed.id || parsed.webViewLink) {
-            result = { success: true, fileId: parsed.id, webViewLink: parsed.webViewLink };
-            break;
-          }
-        } catch {}
-      }
-    }
-
-    if (result?.success) {
-      showToast('success', '✓ Saved to Google Drive',
-        result.webViewLink
-          ? `<a href="${result.webViewLink}" target="_blank" style="color:var(--accent)">Open in Drive →</a>`
-          : `File: ${fileName}`
-      );
+    // Ensure folder exists
+    let folderId;
+    const folderCheckResp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${UPLOAD_FOLDER}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (folderCheckResp.ok) {
+      folderId = (await folderCheckResp.json()).id;
     } else {
-      throw new Error(result?.error || 'Upload failed — check Drive permissions.');
+      // Create folder
+      const createResp = await fetch(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: UPLOAD_FOLDER, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' })
+        }
+      );
+      folderId = (await createResp.json()).id;
     }
+
+    // Upload PDF
+    showToast('', 'Uploading PDF...', fileName);
+    const uploadResp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${folderId}:/${fileName}:/content`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/pdf' },
+        body: pdfBytes
+      }
+    );
+    const uploadData = await uploadResp.json();
+    if (!uploadData.id) throw new Error('Upload failed — no file ID returned.');
+
+    showToast('success', 'Saved to SharePoint',
+      `<a href="${uploadData.webUrl}" target="_blank" style="color:var(--navy)">Open in SharePoint</a>`
+    );
 
   } catch(err) {
-    showToast('error', 'Upload Failed', err.message || 'Could not reach Google Drive.');
+    showToast('error', 'Upload Failed', err.message || 'Could not reach SharePoint.');
     console.error(err);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Save to Drive';
+    btn.textContent = 'Save to SharePoint';
   }
 }
 
