@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  // Tell the parent SharePoint page our full height so the iframe expands
+  function notifyHeight() {
+    const h = document.body.scrollHeight;
+    window.parent.postMessage({ type: 'resize', height: h }, '*');
+  }
+  window.addEventListener('load', notifyHeight);
+  window.addEventListener('resize', notifyHeight);
+  const obs = new MutationObserver(notifyHeight);
+  document.addEventListener('DOMContentLoaded', () => {
+    obs.observe(document.body, { childList: true, subtree: true });
+  });
+</script>
+<title>Trailer Refrigeration – PM Inspection</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+  :root {
+    --navy:      #1a1f8f;
+    --navy-dark: #13166b;
+    --navy-deep: #0d1050;
+    --navy-mid:  #2530b0;
+    --navy-light:#e8eaf8;
+    --navy-pale: #f2f3fc;
+    --white:     #ffffff;
+    --off-white: #f7f8fe;
+    --border:    #c5c9e8;
+    --muted:     #6b72b8;
+    --text:      #1a1a2e;
+    --ok:        #1a7f4b;
+    --ok-bg:     #e6f4ec;
+    --warn:      #c0392b;
+    --warn-bg:   #fdecea;
+    --na-bg:     #eef0f8;
+    --row-h:     36px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--off-white);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── TOP BAR ── */
+  header {
+    background: var(--navy);
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 68px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(26,31,143,.35);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+
+
+  .header-titles { display: flex; flex-direction: column; gap: 1px; }
+  .header-company {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.65);
+  }
+  header h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--white);
+    line-height: 1;
+  }
+
+  .header-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.6);
+    border: 1px solid rgba(255,255,255,.25);
+    padding: 4px 10px;
+    border-radius: 3px;
+  }
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    max-width: 1100px;
+    margin: 28px auto;
+    padding: 0 16px 80px;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--navy);
+    padding: 10px 18px;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    box-shadow: 0 1px 4px rgba(26,31,143,.07);
+  }
+  .legend-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+  .legend-symbol {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    font-weight: 700; font-size: 13px;
+  }
+  .sym-ok  { background: var(--ok-bg);   color: var(--ok);   border: 1.5px solid var(--ok); }
+  .sym-x   { background: var(--warn-bg); color: var(--warn); border: 1.5px solid var(--warn); }
+  .sym-na  { background: var(--na-bg);   color: var(--muted);border: 1.5px solid var(--border); }
+  .cert-note {
+    margin-left: auto;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--navy);
+    border: 1.5px solid var(--navy);
+    padding: 4px 10px; border-radius: 3px;
+    background: var(--navy-pale);
+  }
+
+  /* ── HEADER GRID ── */
+  .header-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(26,31,143,.07);
+  }
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-group label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .field-group input {
+    background: var(--off-white);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field-group input:focus {
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(26,31,143,.1);
+    background: var(--white);
+  }
+
+  /* ── SECTION GRID ── */
+  .sections-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 760px) { .sections-grid { grid-template-columns: 1fr; } }
+
+  /* ── SECTION CARD ── */
+  .section-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(26,31,143,.07);
+  }
+
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: var(--navy);
+    color: var(--white);
+    padding: 9px 14px;
+  }
+
+  /* ── INSPECTION ROW ── */
+  .insp-row {
+    display: grid;
+    grid-template-columns: 1fr 110px;
+    border-bottom: 1px solid var(--navy-light);
+    min-height: var(--row-h);
+    transition: background .12s;
+  }
+  .insp-row:last-child { border-bottom: none; }
+  .insp-row:hover { background: var(--navy-pale); }
+  .insp-row.shaded { background: #eef0fb; }
+  .insp-row.shaded:hover { background: #e2e5f7; }
+
+  .insp-label {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    line-height: 1.35;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid var(--navy-light);
+    color: var(--text);
+  }
+  .insp-label.shaded-label { color: var(--navy-dark); font-weight: 600; }
+
+  .status-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 6px;
+  }
+  .status-btn {
+    width: 30px; height: 26px;
+    border: 1.5px solid var(--border);
+    background: var(--off-white);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 12px; font-weight: 700;
+    cursor: pointer;
+    transition: all .12s;
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+  .status-btn:hover { border-color: var(--navy); color: var(--navy); background: var(--navy-pale); }
+  .status-btn.active-ok  { background: var(--ok);   border-color: var(--ok);   color: #fff; }
+  .status-btn.active-x   { background: var(--warn); border-color: var(--warn); color: #fff; }
+  .status-btn.active-na  { background: var(--muted);border-color: var(--muted);color: #fff; }
+
+  /* inline note input */
+  .insp-note {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--navy-dark);
+    font-size: 11px;
+    font-family: 'Barlow', sans-serif;
+    width: 100%;
+    padding: 2px 4px;
+    outline: none;
+    margin-top: 3px;
+  }
+  .insp-note::placeholder { color: var(--border); }
+  .insp-note:focus { border-bottom-color: var(--navy); }
+
+  /* ── PROGRESS ── */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--navy), var(--navy-mid));
+    width: 0%;
+    transition: width .4s;
+    border-radius: 2px;
+  }
+
+  /* ── SUBMIT BAR ── */
+  .submit-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--navy-deep);
+    border-top: 3px solid var(--navy-mid);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 100;
+    box-shadow: 0 -4px 20px rgba(13,16,80,.4);
+  }
+  .submit-status { font-size: 13px; color: rgba(255,255,255,.6); }
+  .submit-status strong { color: var(--white); }
+
+  .btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-primary {
+    background: var(--white);
+    color: var(--navy);
+  }
+  .btn-primary:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(255,255,255,.2); }
+  .btn-primary:disabled { background: var(--muted); color: var(--white); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--white);
+    border: 1.5px solid rgba(255,255,255,.35);
+  }
+  .btn-outline:hover { border-color: var(--white); background: rgba(255,255,255,.08); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    top: 82px; right: 20px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--navy);
+    color: var(--text);
+    padding: 14px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    max-width: 360px;
+    opacity: 0;
+    transform: translateX(20px);
+    transition: all .3s;
+    z-index: 200;
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(26,31,143,.15);
+  }
+  #toast.show { opacity: 1; transform: translateX(0); }
+  #toast.success { border-left-color: var(--ok); }
+  #toast.error   { border-left-color: var(--warn); }
+  #toast .toast-title { font-weight: 700; margin-bottom: 4px; color: var(--navy-dark); }
+  #toast .toast-sub   { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+
+    <div class="header-titles">
+      <span class="header-company">W&amp;B Service Company</span>
+      <h1>Trailer Refrigeration Equipment</h1>
+    </div>
+  </div>
+  <span class="header-badge">PM Inspection Form</span>
+</header>
+
+<div class="wrapper">
+
+  <!-- Legend -->
+  <div class="legend">
+    <span class="legend-title">Symbols:</span>
+    <div class="legend-item"><span class="legend-symbol sym-ok">✓</span> OK</div>
+    <div class="legend-item"><span class="legend-symbol sym-x">X</span> Needs Repair</div>
+    <div class="legend-item"><span class="legend-symbol sym-na">N</span> Not Applicable</div>
+    <span class="cert-note">⚠ Shaded = 608 Cert. Required</span>
+  </div>
+
+  <!-- Header Fields -->
+  <div class="header-grid">
+    <div class="field-group"><label>Equipment #</label><input id="f_equip" type="text" placeholder="e.g. TRF-0042"></div>
+    <div class="field-group"><label>Customer</label><input id="f_customer" type="text" placeholder="Customer name"></div>
+    <div class="field-group"><label>Date</label><input id="f_date" type="date"></div>
+    <div class="field-group"><label>Serial #</label><input id="f_serial" type="text"></div>
+    <div class="field-group"><label>Hub</label><input id="f_hub" type="text"></div>
+    <div class="field-group"><label>Engine</label><input id="f_engine" type="text"></div>
+    <div class="field-group"><label>Electric</label><input id="f_electric" type="text"></div>
+    <div class="field-group"><label>Unit Make</label><input id="f_make" type="text"></div>
+    <div class="field-group"><label>Unit Model</label><input id="f_model" type="text"></div>
+    <div class="field-group"><label>Work Order</label><input id="f_wo" type="text"></div>
+    <div class="field-group"><label>Technician</label><input id="f_tech" type="text"></div>
+  </div>
+
+  <!-- Progress -->
+  <div style="margin-bottom:20px;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:16px 20px;box-shadow:0 1px 4px rgba(26,31,143,.07)">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:1px">
+      <span>Inspection Progress</span>
+      <span id="progress-label">0 / <span id="total-count">0</span> items completed</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Inspection Sections -->
+  <div class="sections-grid">
+
+    <!-- PHYSICAL INSPECTION -->
+    <div class="section-card">
+      <div class="section-title">Physical Inspection</div>
+      <div id="physical-list"></div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="section-card">
+        <div class="section-title">Inside of Trailer</div>
+        <div id="inside-list"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">Operation Inspection</div>
+        <div id="operation-list"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">1500 Hour Service</div>
+        <div id="svc1500-list"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">3000 Hour Service</div>
+        <div id="svc3000-list"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<!-- Submit Bar -->
+<div class="submit-bar">
+  <div class="submit-status">
+    <strong id="bar-complete">0</strong> of <strong id="bar-total">0</strong> items marked
+  </div>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-outline" onclick="downloadPDF()">Download PDF</button>
+    <button class="btn btn-primary" id="upload-btn" onclick="uploadToDrive()">Save to Drive</button>
+  </div>
+</div>
+
+<div id="toast">
+  <div class="toast-title" id="toast-title"></div>
+  <div class="toast-sub" id="toast-sub"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════
+const SECTIONS = {
+  physical: {
+    label: "Physical Inspection",
+    items: [
+      { id:"pi_switches",  label:"Place all switches in OFF position" },
+      { id:"pi_doors",     label:"Inspect & lube all unit doors" },
+      { id:"pi_coupling",  label:"Check coupling bushing condition" },
+      { id:"pi_nylon",     label:"Check nylon gear condition" },
+      { id:"pi_mounts",    label:"Inspect engine & compressor mounts" },
+      { id:"pi_refleak",   label:"Inspect for refrigerant leaks", cert: true },
+      { id:"pi_coolsec",   label:"Inspect coolant section for leaks" },
+      { id:"pi_coollvl",   label:"Inspect coolant level & condition" },
+      { id:"pi_coolprot",  label:"Record coolant protection level", note: "°F" },
+      { id:"pi_pressure",  label:"Pressure check cooling system & cap" },
+      { id:"pi_fueldec",   label:"Inspect for proper fuel decal" },
+      { id:"pi_fuelvent",  label:"Inspect fuel tank vent" },
+      { id:"pi_oilleak",   label:"Inspect engine oil for leaks" },
+      { id:"pi_oillvl",    label:"Inspect & record engine oil level", note: "Level" },
+      { id:"pi_elec",      label:"Inspect electrical system for loose, frayed or chaffed wiring" },
+      { id:"pi_throttle",  label:"Inspect & lube throttle solenoid plunger linkage & boot" },
+      { id:"pi_defrost",   label:"Inspect defrost air switch", note: "Reading" },
+      { id:"pi_gen",       label:"Inspect Generator/Standby Motor" },
+      { id:"pi_belt",      label:"Check belt tension & condition" },
+      { id:"pi_radiator",  label:"Inspect radiator & condenser for debris" },
+      { id:"pi_condblades",label:"Inspect condenser blades/motor" },
+      { id:"pi_gearbox",   label:"(Carrier) Inspect gearbox" },
+      { id:"pi_clutch",    label:"(Carrier) Inspect clutch" },
+      { id:"pi_battery",   label:"Check battery hold downs & clean battery" },
+    ]
+  },
+  inside: {
+    label: "Inside of Trailer",
+    items: [
+      { id:"it_bulk",    label:"Inspect movable bulkheads for damage" },
+      { id:"it_seals",   label:"Inspect all door seals" },
+      { id:"it_walls",   label:"Inspect interior walls, ceiling & floors for damage" },
+      { id:"it_return",  label:"Remove return air bulkhead & clean debris" },
+      { id:"it_evap",    label:"Inspect all evaporator coils for cleanliness" },
+      { id:"it_airchute",label:"Inspect air chute for cleanliness & damage" },
+      { id:"it_drains",  label:"Inspect floor drains & kazoos" },
+      { id:"it_damper",  label:"Inspection damper operation & lube" },
+    ]
+  },
+  operation: {
+    label: "Operation Inspection",
+    items: [
+      { id:"op_pump",    label:"TK perform low side pump down" },
+      { id:"op_etv",     label:"TK check throttling valve/ETV operation" },
+      { id:"op_cap",     label:"TK perform compressor capacity test" },
+      { id:"op_7step",   label:"Carrier perform 7-step checkout procedure" },
+      { id:"op_compoil", label:"Check compressor oil level" },
+      { id:"op_reflvl",  label:"Check refrigerant level", cert: true },
+      { id:"op_alt",     label:"Check alternator output", note: "Output" },
+      { id:"op_rpm",     label:"Check engine RPM", note: "Low / High" },
+      { id:"op_wtemp",   label:"Check water temp.", note: "Temp" },
+      { id:"op_engoil",  label:"Check engine oil" },
+      { id:"op_fuel",    label:"Clean fuel inlet/Strainer screen" },
+    ]
+  },
+  svc1500: {
+    label: "1500 Hour Service",
+    items: [
+      { id:"s15_fuel",   label:"Replace fuel filter" },
+      { id:"s15_air",    label:"Replace air cleaner" },
+    ]
+  },
+  svc3000: {
+    label: "3000 Hour Service",
+    items: [
+      { id:"s30_drain",  label:"Drain & refill engine oil, verify correct level" },
+    ]
+  }
+};
+
+const state = {}; // id -> { status: 'ok'|'x'|'na'|null, note: string }
+
+// ═══════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════
+function buildSection(containerId, items) {
+  const el = document.getElementById(containerId);
+  items.forEach(item => {
+    state[item.id] = { status: null, note: '' };
+
+    const row = document.createElement('div');
+    row.className = 'insp-row' + (item.cert ? ' shaded' : '');
+    row.innerHTML = `
+      <div class="insp-label${item.cert ? ' shaded-label' : ''}">
+        <div>
+          <div>${item.label}</div>
+          ${item.note ? `<input class="insp-note" id="note_${item.id}" placeholder="${item.note}…" oninput="saveNote('${item.id}', this.value)">` : ''}
+        </div>
+      </div>
+      <div class="status-cell">
+        <button class="status-btn" id="ok_${item.id}"  onclick="setStatus('${item.id}','ok')">✓</button>
+        <button class="status-btn" id="x_${item.id}"   onclick="setStatus('${item.id}','x')">X</button>
+        <button class="status-btn" id="na_${item.id}"  onclick="setStatus('${item.id}','na')">N</button>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+Object.keys(SECTIONS).forEach(sec => {
+  const map = { physical:'physical-list', inside:'inside-list', operation:'operation-list', svc1500:'svc1500-list', svc3000:'svc3000-list' };
+  buildSection(map[sec], SECTIONS[sec].items);
+});
+
+updateProgress();
+const totalEl = document.getElementById('total-count');
+totalEl.textContent = Object.keys(state).length;
+document.getElementById('bar-total').textContent = Object.keys(state).length;
+
+// Set today's date
+document.getElementById('f_date').value = new Date().toISOString().split('T')[0];
+
+// ═══════════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════════
+function setStatus(id, val) {
+  state[id].status = state[id].status === val ? null : val;
+  ['ok','x','na'].forEach(s => {
+    const btn = document.getElementById(`${s}_${id}`);
+    btn.className = 'status-btn' + (state[id].status === s ? ` active-${s}` : '');
+  });
+  updateProgress();
+}
+function saveNote(id, val) { state[id].note = val; }
+
+function updateProgress() {
+  const total   = Object.keys(state).length;
+  const done    = Object.values(state).filter(v => v.status).length;
+  const pct     = total ? (done / total * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').innerHTML = `${done} / <span id="total-count">${total}</span> items completed`;
+  document.getElementById('bar-complete').textContent = done;
+  document.getElementById('bar-total').textContent = total;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PDF GENERATION
+// ═══════════════════════════════════════════════════════════
+function getFieldVal(id) { return document.getElementById(id)?.value || ''; }
+
+function buildPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'letter' });
+  const W = 612, H = 792;
+  const L = 36, R = 576;
+
+  // Title
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(20);
+  doc.text('TRAILER REFRIGERATION EQUIPMENT', L, 46);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(11);
+  doc.text('Preventative Maintenance Inspection', L, 62);
+
+  // Header fields
+  const hdr = [
+    ['Equipment #:',getFieldVal('f_equip'), 'Customer:',getFieldVal('f_customer'), 'Date:',getFieldVal('f_date')],
+    ['Serial #:',  getFieldVal('f_serial'), 'Hub:',     getFieldVal('f_hub'),      'Engine:',getFieldVal('f_engine'), 'Electric:',getFieldVal('f_electric')],
+    ['Unit Make:',getFieldVal('f_make'),    'Unit Model:',getFieldVal('f_model'),  'Work Order:',getFieldVal('f_wo')],
+  ];
+  let hy = 82;
+  hdr.forEach(row => {
+    let hx = L;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    for(let i=0;i<row.length;i+=2) {
+      doc.text(row[i], hx, hy+8);
+      const lw = doc.getTextWidth(row[i]) + 4;
+      const bw = (R - L) / (row.length/2) - lw - 4;
+      doc.rect(hx+lw, hy, bw, 14);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.text(row[i+1] || '', hx+lw+3, hy+9);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      hx += (R-L)/(row.length/2);
+    }
+    hy += 18;
+  });
+
+  // Symbols
+  hy += 4;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.text('Form Symbols:  ✓ / O= OK     X= Needs Repair     N= Not Applicable', L, hy+8);
+  hy += 14;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.text('Shaded Area Requires 608 Certification', L, hy+8);
+  hy += 18;
+
+  // Two-column checklist
+  const colW = 264, checkW = 22, rowH = 14;
+  const col1x = L, col2x = L + colW + 12;
+
+  function drawSection(x, y, title, items) {
+    doc.setFont('helvetica','boldoblique'); doc.setFontSize(9);
+    doc.text(title.toUpperCase(), x, y+8);
+    y += 14;
+    items.forEach(item => {
+      const s = state[item.id];
+      const symbol = s?.status === 'ok' ? '✓' : s?.status === 'x' ? 'X' : s?.status === 'na' ? 'N' : '';
+      if(item.cert) {
+        doc.setFillColor(220,220,220);
+        doc.rect(x, y, colW - checkW, rowH, 'F');
+      }
+      doc.rect(x, y, colW - checkW, rowH);
+      doc.rect(x + colW - checkW, y, checkW, rowH);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+      doc.setTextColor(0);
+      // Truncate long labels
+      let lbl = item.label;
+      while(doc.getTextWidth(lbl) > colW - checkW - 4 && lbl.length > 10) lbl = lbl.slice(0,-1);
+      doc.text(lbl, x+3, y+9);
+      if(symbol) {
+        doc.setFont('helvetica','bold'); doc.setFontSize(8);
+        doc.text(symbol, x + colW - checkW + 7, y+9);
+      }
+      // note
+      if(item.note && s?.note) {
+        doc.setFont('helvetica','normal'); doc.setFontSize(6);
+        doc.setTextColor(80,80,80);
+        doc.text(s.note, x + colW - checkW - doc.getTextWidth(s.note) - 2, y+9);
+        doc.setTextColor(0);
+      }
+      y += rowH;
+    });
+    return y;
+  }
+
+  // Left column
+  let ly = hy;
+  ly = drawSection(col1x, ly, 'Physical Inspection', SECTIONS.physical.items) + 4;
+
+  // Right column
+  let ry = hy;
+  ry = drawSection(col2x, ry, 'Inside of Trailer', SECTIONS.inside.items) + 10;
+  ry = drawSection(col2x, ry, 'Operation Inspection', SECTIONS.operation.items) + 10;
+  ry = drawSection(col2x, ry, '1500 Hour Service', SECTIONS.svc1500.items) + 10;
+  ry = drawSection(col2x, ry, '3000 Hour Service', SECTIONS.svc3000.items);
+
+  return doc;
+}
+
+// ═══════════════════════════════════════════════════════════
+// DOWNLOAD
+// ═══════════════════════════════════════════════════════════
+function downloadPDF() {
+  const doc = buildPDF();
+  const equip = getFieldVal('f_equip') || 'Inspection';
+  const date  = getFieldVal('f_date') || new Date().toISOString().split('T')[0];
+  doc.save(`Trailer_PM_${equip}_${date}.pdf`);
+  showToast('success', 'PDF Downloaded', 'Check your downloads folder.');
+}
+
+// ═══════════════════════════════════════════════════════════
+// GOOGLE DRIVE UPLOAD via Claude API + MCP
+// ═══════════════════════════════════════════════════════════
+async function uploadToDrive() {
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = true;
+  btn.textContent = 'Uploading...';
+  showToast('', 'Uploading to Google Drive...', 'Generating PDF and sending to Drive.');
+
+  try {
+    const doc  = buildPDF();
+    const b64  = doc.output('datauristring').split(',')[1];
+    const equip = getFieldVal('f_equip') || 'Unknown';
+    const date  = getFieldVal('f_date')  || new Date().toISOString().split('T')[0];
+    const fileName = `Trailer_PM_${equip}_${date}.pdf`;
+
+    const prompt = `Upload a PDF file to Google Drive.
+
+File name: "${fileName}"
+Folder: Create or use a folder named "Trailer PM Inspections" in the root of Drive.
+Content: The file is a base64-encoded PDF.
+
+Base64 data:
+${b64}
+
+Steps:
+1. Check if a folder named "Trailer PM Inspections" exists; if not, create it.
+2. Upload the PDF into that folder with the file name provided.
+3. Return ONLY a JSON object: {"success": true, "fileId": "...", "webViewLink": "..."} or {"success": false, "error": "..."}`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }],
+        mcp_servers: [{
+          type: 'url',
+          url: 'https://drivemcp.googleapis.com/mcp/v1',
+          name: 'google-drive'
+        }]
+      })
+    });
+
+    const data = await resp.json();
+
+    // Extract result from content blocks
+    let result = null;
+    for (const block of (data.content || [])) {
+      if (block.type === 'text') {
+        try {
+          const clean = block.text.replace(/```json|```/g,'').trim();
+          const parsed = JSON.parse(clean);
+          if (parsed.success !== undefined) { result = parsed; break; }
+        } catch {}
+      }
+      if (block.type === 'mcp_tool_result') {
+        try {
+          const txt = block.content?.[0]?.text || '';
+          const parsed = JSON.parse(txt);
+          if (parsed.id || parsed.webViewLink) {
+            result = { success: true, fileId: parsed.id, webViewLink: parsed.webViewLink };
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    if (result?.success) {
+      showToast('success', '✓ Saved to Google Drive',
+        result.webViewLink
+          ? `<a href="${result.webViewLink}" target="_blank" style="color:var(--accent)">Open in Drive →</a>`
+          : `File: ${fileName}`
+      );
+    } else {
+      throw new Error(result?.error || 'Upload failed — check Drive permissions.');
+    }
+
+  } catch(err) {
+    showToast('error', 'Upload Failed', err.message || 'Could not reach Google Drive.');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save to Drive';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(type, title, sub) {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-sub').innerHTML = sub || '';
+  el.className = 'show' + (type ? ` ${type}` : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 5000);
+}
+</script>
+</body>
+</html>
