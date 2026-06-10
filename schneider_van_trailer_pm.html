@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OTR Schneider National — Van Trailer PM Checklist</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+  :root {
+    --navy:      #1a1f8f;
+    --navy-dk:   #12155f;
+    --ink:       #16181d;
+    --line:      #2b2f36;
+    --paper:     #ffffff;
+    --paper-2:   #f4f6fa;
+    --muted:     #6b7480;
+    --sat:       #1f9d55;   /* Satisfactory */
+    --rpr:       #d4351c;   /* Repair Required */
+    --cor:       #c47f00;   /* Correct */
+    --row-h:     34px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--paper-2);
+    color: var(--ink);
+    line-height: 1.25;
+    padding: 0 0 120px;
+  }
+
+  /* ── BRAND BAR ── */
+  header {
+    background: var(--navy);
+    color: #fff;
+    border-bottom: 4px solid var(--navy-dk);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    letter-spacing: 2px;
+  }
+  .brand small {
+    display: block;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 1px;
+    opacity: .85;
+    text-transform: uppercase;
+  }
+  .progress-wrap { flex: 1; max-width: 320px; }
+  .progress-label {
+    font-size: 11px;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .progress-track {
+    height: 8px;
+    background: rgba(255,255,255,.22);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #fff;
+    transition: width .25s ease;
+  }
+
+  /* ── SHEET ── */
+  .sheet {
+    max-width: 980px;
+    margin: 20px auto;
+    background: var(--paper);
+    border: 1px solid var(--line);
+  }
+  .form-title {
+    text-align: center;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .form-title .eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+  .form-title h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 24px;
+    letter-spacing: .5px;
+    margin: 2px 0;
+  }
+  .form-title .srt {
+    display: inline-block;
+    margin-top: 6px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 1.5px;
+    color: var(--navy);
+    border-bottom: 2px solid var(--navy);
+    padding-bottom: 2px;
+  }
+
+  /* ── HEADER FIELDS ── */
+  .hdr-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr;
+    border-bottom: 1px solid var(--line);
+  }
+  .fld {
+    border-right: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    padding: 7px 10px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hdr-grid .fld:nth-child(-n+3) { border-top: none; }
+  .fld:nth-child(3n) { border-right: none; }
+  .fld label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .fld input {
+    border: none;
+    border-bottom: 1px solid transparent;
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 1px 0;
+    background: transparent;
+    color: var(--ink);
+    width: 100%;
+  }
+  .fld input:focus { outline: none; border-bottom-color: var(--navy); }
+  .fld.equip { grid-column: 1 / 2; }
+  .fld.loc   { grid-column: 1 / 4; border-right: none; }
+
+  .note-line {
+    padding: 7px 12px;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--muted);
+    border-bottom: 2px solid var(--line);
+    background: var(--paper-2);
+  }
+
+  /* ── COLUMN HEADER ── */
+  .col-head {
+    display: grid;
+    grid-template-columns: 92px 92px 92px 116px 1fr;
+    background: #e9edf3;
+    border-bottom: 1px solid var(--line);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .col-head > div {
+    padding: 6px 6px;
+    text-align: center;
+    border-right: 1px solid #d2d8e0;
+  }
+  .col-head > div:last-child {
+    border-right: none;
+    text-align: left;
+    padding-left: 12px;
+    font-style: italic;
+    color: var(--navy);
+    letter-spacing: 1.5px;
+  }
+
+  /* ── ROWS ── */
+  .section-head {
+    background: var(--navy);
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 92px 92px 92px 116px 1fr;
+    border-bottom: 1px solid #e2e6ec;
+    min-height: var(--row-h);
+  }
+  .row:hover { background: var(--paper-2); }
+  .mk {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #e2e6ec;
+    padding: 3px;
+  }
+  .mbtn {
+    width: 28px; height: 28px;
+    border: 1.5px solid #c4ccd6;
+    background: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .12s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mbtn::after {
+    content: "";
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: transparent;
+    transition: background .12s ease;
+  }
+  .mbtn:hover { border-color: var(--navy); }
+  .mk.sat .mbtn.on { border-color: var(--sat); }
+  .mk.sat .mbtn.on::after { background: var(--sat); }
+  .mk.rpr .mbtn.on { border-color: var(--rpr); }
+  .mk.rpr .mbtn.on::after { background: var(--rpr); }
+  .mk.cor .mbtn.on { border-color: var(--cor); }
+  .mk.cor .mbtn.on::after { background: var(--cor); }
+
+  .step-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--muted);
+    border-right: 1px solid #e2e6ec;
+    text-align: center;
+    padding: 2px 4px;
+  }
+  .step-cell.named {
+    font-family: 'Barlow Condensed', sans-serif;
+    color: var(--navy);
+    font-size: 12.5px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    line-height: 1.05;
+  }
+  .desc-cell {
+    display: flex;
+    align-items: center;
+    padding: 5px 12px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .measure {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .measure input {
+    width: 70px;
+    border: none;
+    border-bottom: 1.4px solid #c4ccd6;
+    text-align: center;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    padding: 1px 0;
+  }
+  .measure input:focus { outline: none; border-bottom-color: var(--navy); }
+
+  /* ── FOOTER ── */
+  .sign-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    border-top: 2px solid var(--line);
+  }
+  .sign-grid .fld { border-top: none; }
+  .compliance {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--line);
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* ── ACTION BAR ── */
+  .actions {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    z-index: 60;
+  }
+  .btn {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: .3px;
+    padding: 12px 22px;
+    border-radius: 8px;
+    border: 2px solid var(--navy);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all .15s ease;
+  }
+  .btn-secondary { background: #fff; color: var(--navy); }
+  .btn-secondary:hover { background: var(--paper-2); }
+  .btn-primary { background: var(--navy); color: #fff; }
+  .btn-primary:hover { background: var(--navy-dk); border-color: var(--navy-dk); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+
+  .toast {
+    position: fixed;
+    bottom: 84px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: all .25s ease;
+    z-index: 70;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--rpr); }
+  .toast.ok  { background: var(--sat); }
+
+  @media (max-width: 680px) {
+    .hdr-grid { grid-template-columns: 1fr 1fr; }
+    .fld:nth-child(3n) { border-right: 1px solid var(--line); }
+    .fld:nth-child(2n) { border-right: none; }
+    .fld.equip { grid-column: 1 / 3; }
+    .fld.loc { grid-column: 1 / 3; }
+    .col-head, .row { grid-template-columns: 50px 50px 50px 78px 1fr; }
+    .col-head { font-size: 9.5px; }
+    .col-head > div { padding: 5px 2px; }
+    .mbtn { width: 24px; height: 24px; }
+    .mbtn::after { width: 12px; height: 12px; }
+    .brand { font-size: 20px; }
+    .progress-wrap { display: none; }
+    .btn { padding: 12px 16px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">W&amp;B<small>Service Company</small></div>
+  <div class="progress-wrap">
+    <div class="progress-label"><span>Inspection Progress</span><span id="progPct">0 / 0</span></div>
+    <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+  </div>
+</header>
+
+<div class="sheet">
+
+  <div class="form-title">
+    <div class="eyebrow">OTR Schneider National</div>
+    <h1>Van Trailer Preventative Maintenance Checklist</h1>
+    <div class="srt">Van Trailer Inspections · SRT 1 HR</div>
+  </div>
+
+  <div class="hdr-grid">
+    <div class="fld equip"><label>Equipment</label><input id="f_equip" type="text"></div>
+    <div class="fld"><label>W/O Number</label><input id="f_wo" type="text"></div>
+    <div class="fld"><label>Date</label><input id="f_date" type="date"></div>
+    <div class="fld loc"><label>Location</label><input id="f_loc" type="text"></div>
+  </div>
+
+  <div class="note-line">Steps not specifically labeled should be done at all PM's. Labeled steps should be done only at those inspections.</div>
+
+  <div class="col-head">
+    <div>Satisfactory</div>
+    <div>Rpr. Req.</div>
+    <div>Correct</div>
+    <div>Step</div>
+    <div>Detail Line</div>
+  </div>
+
+  <div id="checklist"></div>
+
+  <div class="sign-grid">
+    <div class="fld"><label>Qualified Inspector Signature</label><input id="f_sig" type="text" placeholder="Type full name"></div>
+    <div class="fld"><label>Mechanic Number</label><input id="f_mech" type="text"></div>
+  </div>
+
+  <div class="compliance">
+    <span>This inspection meets annual inspection requirements of FHWA 49 CFR Part 396 Appendix A</span>
+    <span>Updated 5/24/2023</span>
+  </div>
+
+</div>
+
+<div class="actions">
+  <button class="btn btn-secondary" id="btnPdf">⬇ Download PDF</button>
+  <button class="btn btn-primary" id="btnSave">☁ Save to SharePoint</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CHECKLIST DATA — mirrors paper. First step of each section
+//  shows the section name in the Step column (paper quirk),
+//  remaining steps number from 2.
+//  Each step: [stepLabel, description, measureKey?]
+// ═══════════════════════════════════════════════════════════
+const SECTIONS = [
+  { title: "Front Section", steps: [
+    ["Front Section", "Verify PM due / Check TBO's (Yard tractor 3 ft. from the nose)"],
+    ["2", "Light plug (connect lights) Lights"],
+    ["3", "Gladhands / Hoses / Connect to tractor (don't apply service brakes) release emergency brakes"],
+    ["4", "Manifest box and bag / Placard holder / Body / Decals / Registration / Data plate"],
+    ["5", "Coupler / king pin"],
+    ["6", "Props / Handle / Brackets / Legs / Cross frame / Mounting bolts"],
+  ]},
+  { title: "Right Side", steps: [
+    ["Right Side", "Placard holder / Body / Rail damage / Decals / Reflective tape"],
+    ["2", "Marker lights / Turn lights / Grease mid-ship and beehive"],
+    ["3", "Flat / Tread depth / Air & equalize tires to 100 PSI"],
+    ["4", "Lug nuts / Hubcap bolts / Hubcaps"],
+    ["5", "Slider pins / Slider rail / Gussets / Spring hangers / Equalizer"],
+    ["6", "Mud flaps / Brackets"],
+  ]},
+  { title: "Rear Section", steps: [
+    ["Rear Section", "Lights / ABS warning light / License plate light"],
+    ["2", "ICC Bumper / Door hardware / Doors / Door seal"],
+    ["3", "Placard holder / License plate / Decals / Reflective tape"],
+    ["4", "Empty Trailer Only - Close Doors - Interior leaks / Door seals (light check) (Please don't break seal.)"],
+  ]},
+  { title: "Left Side Tires / Slider", steps: [
+    ["Left Side Tires/Slider", "Flat / Tread depth / Air & equalize tires to 100 PSI"],
+    ["2", "Lug nuts / Hubcaps / Hubcap bolts"],
+    ["3", "Slider rail / Slider pins / Pull pins / Gussets / Slider handle / Spring hangers / Equalizer"],
+    ["4", "Mud flaps / Brackets"],
+  ]},
+  { title: "Undercarriage", steps: [
+    ["Undercarriage", "Springs / Hangers / U-Bolts / Radius rods / Paint push rods"],
+    ["2", "Valves / Hoses / Tanks / Airline springs"],
+    ["3", "Wheel seals / Maxi's / S-Cams / Brackets / Slacks / Shoe condition / Drums. Don't replace unless <8/32\" or below."],
+    ["4", "Grease cam bushings & slacks (brakes must be released)"],
+    ["5", "Emergency application spring (remove inspection plug)"],
+  ]},
+  { title: "Left Side", steps: [
+    ["Left Side", "Marker lights / Turn lights / Grease mid-ship and beehive"],
+    ["2", "Placard holder / Body / Rail damage / Decals / Reflective tape"],
+  ]},
+  { title: "Roof", steps: [
+    ["Roof", "Roof / Rivets / Holes"],
+  ]},
+  { title: "Finish", steps: [
+    ["Finish", "Apply service brakes / Air leaks / Stroke / Record lowest lining depth:", "lining"],
+    ["2", "PM decal / Update DST"],
+  ]},
+];
+
+// flatten to unique ids
+let TOTAL = 0;
+SECTIONS.forEach((s,si)=> s.steps.forEach((_,ri)=>{ _.id = 'r'+si+'_'+ri; TOTAL++; }));
+
+const marks = {};   // id -> 'sat' | 'rpr' | 'cor'
+
+const list = document.getElementById('checklist');
+SECTIONS.forEach((sec, si) => {
+  const sh = document.createElement('div');
+  sh.className = 'section-head';
+  sh.textContent = sec.title;
+  list.appendChild(sh);
+
+  sec.steps.forEach((step, ri) => {
+    const [label, desc, mkey] = step;
+    const id = step.id;
+    const isNamed = ri === 0;
+
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    [['sat'],['rpr'],['cor']].forEach(([k]) => {
+      const cell = document.createElement('div');
+      cell.className = 'mk ' + k;
+      const b = document.createElement('button');
+      b.className = 'mbtn';
+      b.onclick = () => setMark(id, k, row);
+      cell.appendChild(b);
+      row.appendChild(cell);
+    });
+
+    const stc = document.createElement('div');
+    stc.className = 'step-cell' + (isNamed ? ' named' : '');
+    stc.textContent = isNamed ? '' : label;   // named first row leaves number blank, section name is in desc context
+    if (isNamed) stc.textContent = label;
+    row.appendChild(stc);
+
+    const dc = document.createElement('div');
+    dc.className = 'desc-cell';
+    let html = '<span>' + desc + '</span>';
+    if (mkey === 'lining') {
+      html += '<span class="measure"><input data-m="lining" type="text"></span>';
+    }
+    dc.innerHTML = html;
+    row.appendChild(dc);
+
+    list.appendChild(row);
+  });
+});
+
+function setMark(id, kind, row) {
+  if (marks[id] === kind) delete marks[id];
+  else marks[id] = kind;
+  // update the three buttons in this row
+  const cells = row.querySelectorAll('.mk');
+  cells.forEach(cell => {
+    const k = cell.classList.contains('sat') ? 'sat' : cell.classList.contains('rpr') ? 'rpr' : 'cor';
+    cell.querySelector('.mbtn').classList.toggle('on', marks[id] === k);
+  });
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = Object.keys(marks).length;
+  const pct = Math.round((done / TOTAL) * 100);
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progPct').textContent = done + ' / ' + TOTAL;
+}
+document.getElementById('progPct').textContent = '0 / ' + TOTAL;
+
+document.getElementById('f_date').valueAsDate = new Date();
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  setTimeout(() => t.className = 'toast', 3200);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PDF GENERATION
+// ═══════════════════════════════════════════════════════════
+function gv(id){ return (document.getElementById(id).value || '').trim(); }
+function mval(key){ const el = document.querySelector('[data-m="'+key+'"]'); return el ? (el.value||'').trim() : ''; }
+
+function buildPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const M = 40, W = 612;
+  let y = 42;
+  const navy = [26,31,143];
+
+  doc.setFont('helvetica','bold').setFontSize(11).setTextColor(...navy);
+  doc.text('OTR Schneider National', W/2, y, {align:'center'}); y += 15;
+  doc.setFontSize(13);
+  doc.text('Van Trailer Preventative Maintenance Checklist', W/2, y, {align:'center'}); y += 14;
+  doc.setFontSize(10).setTextColor(40);
+  doc.text('Van Trailer Inspections — SRT 1 HR', W/2, y, {align:'center'}); y += 18;
+
+  doc.setFontSize(10).setTextColor(20);
+  doc.text('Equipment: ' + gv('f_equip'), M, y);
+  doc.text('W/O #: ' + gv('f_wo'), M+220, y);
+  doc.text('Date: ' + gv('f_date'), M+380, y); y += 14;
+  doc.text('Location: ' + gv('f_loc'), M, y); y += 8;
+  doc.setDrawColor(...navy).setLineWidth(1).line(M, y, W-M, y); y += 8;
+
+  doc.setFont('helvetica','italic').setFontSize(7.5).setTextColor(110);
+  doc.text("Steps not specifically labeled should be done at all PM's. Labeled steps should be done only at those inspections.", M, y); y += 14;
+
+  const symMap = { sat:'Satisfactory', rpr:'Rpr. Req.', cor:'Correct' };
+
+  SECTIONS.forEach(sec => {
+    if (y > 720) { doc.addPage(); y = 44; }
+    doc.setFont('helvetica','bold').setFontSize(10).setTextColor(...navy);
+    doc.text(sec.title.toUpperCase(), M, y); y += 13;
+    doc.setFont('helvetica','normal').setFontSize(8.5).setTextColor(20);
+
+    sec.steps.forEach((step, ri) => {
+      if (y > 740) { doc.addPage(); y = 44; }
+      const [label, desc, mkey] = step;
+      const mk = marks[step.id] ? symMap[marks[step.id]] : '—';
+      const lbl = ri === 0 ? '•' : label;
+      const txt = lbl + '. [' + mk + ']  ' + desc;
+      const lines = doc.splitTextToSize(txt, W - 2*M);
+      doc.text(lines, M, y);
+      y += lines.length * 10 + 2;
+      if (mkey === 'lining') {
+        doc.setTextColor(90);
+        doc.text('   Lowest lining depth: ' + mval('lining'), M, y);
+        doc.setTextColor(20); y += 11;
+      }
+    });
+    y += 6;
+  });
+
+  if (y > 700) { doc.addPage(); y = 44; }
+  y += 8;
+  doc.setDrawColor(...navy).line(M, y, W-M, y); y += 18;
+  doc.setFont('helvetica','bold').setFontSize(10).setTextColor(20);
+  doc.text('Qualified Inspector Signature: ' + gv('f_sig'), M, y);
+  doc.text('Mechanic #: ' + gv('f_mech'), W-M, y, {align:'right'}); y += 16;
+  doc.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
+  doc.text('This inspection meets annual inspection requirements of FHWA 49 CFR Part 396 Appendix A', M, y);
+
+  return doc;
+}
+
+function fileName() {
+  const eq = gv('f_equip') || 'Equip';
+  const date = gv('f_date') || new Date().toISOString().slice(0,10);
+  return 'SchneiderVanPM_' + eq.replace(/[^\w-]/g,'') + '_' + date + '.pdf';
+}
+
+document.getElementById('btnPdf').onclick = () => {
+  try { buildPDF().save(fileName()); toast('PDF downloaded', 'ok'); }
+  catch(e){ console.error(e); toast('PDF error: ' + e.message, 'err'); }
+};
+
+// ═══════════════════════════════════════════════════════════
+//  SHAREPOINT UPLOAD via Microsoft Graph + MSAL
+//  (same Azure app registration as the other inspection forms)
+// ═══════════════════════════════════════════════════════════
+const MSAL_CONFIG = {
+  auth: {
+    clientId:    '22d9de4e-e09c-4371-b423-a91bb093cf44',
+    authority:   'https://login.microsoftonline.com/b0acb5c9-5242-45c3-bc06-ea052523d68a',
+    redirectUri: window.location.href.split('?')[0].split('#')[0],
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+};
+const GRAPH_SCOPES = ['Files.ReadWrite.All', 'Sites.ReadWrite.All'];
+const SP_HOSTNAME  = 'wbserv.sharepoint.com';
+const SP_SITE_PATH = '/sites/WBEquipmentInpsection';
+const SP_FOLDER    = 'Schneider Van Trailer PM Inspections';
+
+let msalApp = null;
+try { msalApp = new msal.PublicClientApplication(MSAL_CONFIG); } catch(e){ console.error('MSAL init', e); }
+
+async function getToken() {
+  if (msalApp.initialize) { try { await msalApp.initialize(); } catch(e){} }
+  let account = msalApp.getAllAccounts()[0];
+  try {
+    if (account) {
+      const r = await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
+      return r.accessToken;
+    }
+  } catch(e) { /* fall through to popup */ }
+  const r = await msalApp.loginPopup({ scopes: GRAPH_SCOPES, prompt: 'select_account' });
+  return (await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: r.account })).accessToken;
+}
+
+async function graph(url, token, opts={}) {
+  const res = await fetch('https://graph.microsoft.com/v1.0' + url, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.headers||{}) }
+  });
+  if (!res.ok) throw new Error('Graph ' + res.status + ': ' + (await res.text()).slice(0,180));
+  return res.headers.get('content-type')?.includes('json') ? res.json() : res;
+}
+
+document.getElementById('btnSave').onclick = async () => {
+  const btn = document.getElementById('btnSave');
+  if (!msalApp) { toast('Sign-in unavailable on this host', 'err'); return; }
+  btn.disabled = true; btn.textContent = '… Signing in';
+  try {
+    const token = await getToken();
+    btn.textContent = '… Uploading';
+
+    const site = await graph('/sites/' + SP_HOSTNAME + ':' + SP_SITE_PATH, token);
+    const blob = buildPDF().output('blob');
+    const buf  = await blob.arrayBuffer();
+    const path = encodeURIComponent(SP_FOLDER) + '/' + encodeURIComponent(fileName());
+
+    await graph('/sites/' + site.id + '/drive/root:/' + path + ':/content', token, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: buf
+    });
+
+    toast('Saved to SharePoint ✓', 'ok');
+  } catch (e) {
+    console.error(e);
+    if ((e.message||'').toLowerCase().includes('popup'))
+      toast('Allow popups for this site, then try again', 'err');
+    else
+      toast('Upload failed: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '☁ Save to SharePoint';
+  }
+};
+</script>
+</body>
+</html>
