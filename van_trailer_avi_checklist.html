@@ -6,7 +6,6 @@
 <title>Van Trailer AVI Checklist 06-200-200</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
   :root {
     --navy:      #1a1f8f;
@@ -491,7 +490,7 @@
 
 <div class="actions">
   <button class="btn btn-secondary" id="btnPdf">⬇ Download PDF</button>
-  <button class="btn btn-primary" id="btnSave">☁ Save to SharePoint</button>
+  <button class="btn btn-primary" id="btnEmail">✉ Download &amp; Email</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -740,75 +739,49 @@ document.getElementById('btnPdf').onclick = () => {
 };
 
 // ═══════════════════════════════════════════════════════════
-//  SHAREPOINT UPLOAD via Microsoft Graph + MSAL
-//  (same Azure app registration as the trailer refrigeration form)
+//  DOWNLOAD & EMAIL via Outlook (mailto:)
+//  Browsers can't attach a file to an email automatically, so this
+//  downloads the PDF first, then opens a pre-filled Outlook draft.
+//  The tech drags the just-downloaded PDF into the message.
 // ═══════════════════════════════════════════════════════════
-const MSAL_CONFIG = {
-  auth: {
-    clientId:    '22d9de4e-e09c-4371-b423-a91bb093cf44',
-    authority:   'https://login.microsoftonline.com/b0acb5c9-5242-45c3-bc06-ea052523d68a',
-    redirectUri: window.location.href.split('?')[0].split('#')[0],
-  },
-  cache: { cacheLocation: 'sessionStorage' }
-};
-const GRAPH_SCOPES = ['Files.ReadWrite.All', 'Sites.ReadWrite.All'];
-const SP_HOSTNAME  = 'wbserv.sharepoint.com';
-const SP_SITE_PATH = '/sites/WBEquipmentInpsection';
-const SP_FOLDER    = 'Van Trailer AVI Inspections';   // new folder for this form
+const EMAIL_TO = '';   // leave blank for tech to choose; set a fixed inbox here later if desired
 
-let msalApp = null;
-try { msalApp = new msal.PublicClientApplication(MSAL_CONFIG); } catch(e){ console.error('MSAL init', e); }
-
-async function getToken() {
-  if (msalApp.initialize) { try { await msalApp.initialize(); } catch(e){} }
-  let account = msalApp.getAllAccounts()[0];
+document.getElementById('btnEmail').onclick = () => {
+  const btn = document.getElementById('btnEmail');
   try {
-    if (account) {
-      const r = await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
-      return r.accessToken;
-    }
-  } catch(e) { /* fall through to popup */ }
-  const r = await msalApp.loginPopup({ scopes: GRAPH_SCOPES, prompt: 'select_account' });
-  return (await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: r.account })).accessToken;
-}
+    // 1) generate + download the PDF
+    const fn = fileName();
+    buildPDF().save(fn);
 
-async function graph(url, token, opts={}) {
-  const res = await fetch('https://graph.microsoft.com/v1.0' + url, {
-    ...opts,
-    headers: { Authorization: 'Bearer ' + token, ...(opts.headers||{}) }
-  });
-  if (!res.ok) throw new Error('Graph ' + res.status + ': ' + (await res.text()).slice(0,180));
-  return res.headers.get('content-type')?.includes('json') ? res.json() : res;
-}
+    // 2) build a pre-filled Outlook draft
+    const unit = gv('f_unit') || 'Unit';
+    const date = gv('f_date') || new Date().toISOString().slice(0,10);
+    const carrier = selectedCarrier || '';
+    const subject = 'Van Trailer AVI Checklist - ' + unit + ' - ' + date;
+    const bodyLines = [
+      'Van Trailer AVI Checklist (06-200-200)',
+      '',
+      'Unit Number: ' + unit,
+      'Date: ' + date,
+      'Work Order: ' + (gv('f_wo') || ''),
+      'Location: ' + (gv('f_loc') || ''),
+      carrier ? ('Carrier: ' + carrier) : '',
+      'Technician #: ' + (gv('f_tech') || ''),
+      '',
+      'NOTE: Attach the downloaded PDF (' + fn + ') from your Downloads folder before sending.',
+    ].filter(Boolean);
+    const body = bodyLines.join('\r\n');
 
-document.getElementById('btnSave').onclick = async () => {
-  const btn = document.getElementById('btnSave');
-  if (!msalApp) { toast('Sign-in unavailable on this host', 'err'); return; }
-  btn.disabled = true; btn.textContent = '… Signing in';
-  try {
-    const token = await getToken();
-    btn.textContent = '… Uploading';
+    const mailto = 'mailto:' + encodeURIComponent(EMAIL_TO) +
+      '?subject=' + encodeURIComponent(subject) +
+      '&body=' + encodeURIComponent(body);
 
-    const site = await graph('/sites/' + SP_HOSTNAME + ':' + SP_SITE_PATH, token);
-    const blob = buildPDF().output('blob');
-    const buf  = await blob.arrayBuffer();
-    const path = encodeURIComponent(SP_FOLDER) + '/' + encodeURIComponent(fileName());
-
-    await graph('/sites/' + site.id + '/drive/root:/' + path + ':/content', token, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/pdf' },
-      body: buf
-    });
-
-    toast('Saved to SharePoint ✓', 'ok');
+    // small delay so the download starts before the mail client steals focus
+    setTimeout(() => { window.location.href = mailto; }, 400);
+    toast('PDF downloaded - drag it into the email', 'ok');
   } catch (e) {
     console.error(e);
-    if ((e.message||'').toLowerCase().includes('popup'))
-      toast('Allow popups for this site, then try again', 'err');
-    else
-      toast('Upload failed: ' + e.message, 'err');
-  } finally {
-    btn.disabled = false; btn.textContent = '☁ Save to SharePoint';
+    toast('Error: ' + e.message, 'err');
   }
 };
 </script>
