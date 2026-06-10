@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>W&amp;B Inspection Forms</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:    #1a1f8f;
+    --navy-dk: #12155f;
+    --ink:     #16181d;
+    --line:    #d8dde6;
+    --paper:   #ffffff;
+    --paper-2: #f4f6fa;
+    --muted:   #6b7480;
+    --soon:    #9aa4b0;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--paper-2);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--navy);
+    color: #fff;
+    border-bottom: 4px solid var(--navy-dk);
+    padding: 22px 24px;
+    text-align: center;
+  }
+  .brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 34px;
+    letter-spacing: 3px;
+    line-height: 1;
+  }
+  .brand small {
+    display: block;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: .85;
+    margin-top: 4px;
+  }
+  .tagline {
+    margin-top: 14px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: .9;
+  }
+
+  main { max-width: 760px; margin: 0 auto; padding: 28px 18px 60px; }
+
+  .search-wrap { margin-bottom: 22px; }
+  .search-wrap input {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    background: #fff;
+  }
+  .search-wrap input:focus { outline: none; border-color: var(--navy); }
+
+  .group-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 18px 4px 10px;
+  }
+
+  .cards { display: flex; flex-direction: column; gap: 12px; }
+
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #fff;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: all .14s ease;
+    position: relative;
+  }
+  a.card:hover {
+    border-color: var(--navy);
+    box-shadow: 0 6px 18px rgba(26,31,143,.12);
+    transform: translateY(-1px);
+  }
+  .card.soon { opacity: .72; cursor: default; }
+
+  .icon {
+    flex: none;
+    width: 48px; height: 48px;
+    border-radius: 11px;
+    background: var(--navy);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+  .card.soon .icon { background: var(--soon); }
+
+  .card-body { flex: 1; min-width: 0; }
+  .card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: .3px;
+  }
+  .card-meta {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .arrow { flex: none; color: var(--navy); font-size: 22px; font-weight: 700; }
+  .badge {
+    flex: none;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--soon);
+    border: 1.5px solid var(--soon);
+    border-radius: 20px;
+    padding: 3px 10px;
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 0;
+    font-size: 15px;
+    display: none;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 0 18px 40px;
+  }
+
+  @media (max-width: 480px) {
+    .brand { font-size: 27px; }
+    .card { padding: 15px 16px; gap: 13px; }
+    .icon { width: 42px; height: 42px; font-size: 21px; }
+    .card-title { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">W&amp;B<small>Service Company</small></div>
+  <div class="tagline">Equipment Inspection Forms</div>
+</header>
+
+<main>
+  <div class="search-wrap">
+    <input id="search" type="text" placeholder="Search forms…" autocomplete="off">
+  </div>
+
+  <div class="group-label" data-group>Available</div>
+  <div class="cards" id="liveCards">
+
+    <a class="card" href="trailer_inspection_form.html" data-name="trailer refrigeration pm preventative maintenance reefer">
+      <div class="icon">❄</div>
+      <div class="card-body">
+        <div class="card-title">Trailer Refrigeration PM Inspection</div>
+        <div class="card-meta">Preventative maintenance · reefer units</div>
+      </div>
+      <div class="arrow">→</div>
+    </a>
+
+    <a class="card" href="van_trailer_avi_checklist.html" data-name="van trailer avi checklist 06-200-200 annual inspection schneider midwest m&m cowan">
+      <div class="icon">🚛</div>
+      <div class="card-body">
+        <div class="card-title">Van Trailer AVI Checklist</div>
+        <div class="card-meta">06-200-200 · annual vehicle inspection</div>
+      </div>
+      <div class="arrow">→</div>
+    </a>
+
+  </div>
+
+  <div class="group-label" data-group>Coming Soon</div>
+  <div class="cards" id="soonCards">
+    <div class="card soon" data-name="placeholder upcoming form">
+      <div class="icon">＋</div>
+      <div class="card-body">
+        <div class="card-title">More forms being added</div>
+        <div class="card-meta">Additional inspection sheets are being digitized</div>
+      </div>
+      <div class="badge">Soon</div>
+    </div>
+  </div>
+
+  <div class="empty" id="empty">No forms match that search.</div>
+</main>
+
+<footer>W&amp;B Service Company · Equipment Inspection · Internal use</footer>
+
+<script>
+  const search = document.getElementById('search');
+  const cards = [...document.querySelectorAll('.card')];
+  const groups = [...document.querySelectorAll('[data-group]')];
+  const empty = document.getElementById('empty');
+
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    cards.forEach(c => {
+      const hay = (c.dataset.name + ' ' + c.textContent).toLowerCase();
+      const match = !q || hay.includes(q);
+      c.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    // hide a group label if all its cards are hidden
+    groups.forEach(g => {
+      let n = g.nextElementSibling;
+      const visible = [...n.children].some(c => c.style.display !== 'none');
+      g.style.display = visible ? '' : 'none';
+      n.style.display = visible ? '' : 'none';
+    });
+    empty.style.display = shown ? 'none' : 'block';
+  });
+</script>
+</body>
+</html>

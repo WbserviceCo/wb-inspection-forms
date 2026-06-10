@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Van Trailer AVI Checklist 06-200-200</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+  :root {
+    --navy:      #1a1f8f;
+    --navy-dk:   #12155f;
+    --ink:       #16181d;
+    --line:      #2b2f36;
+    --paper:     #ffffff;
+    --paper-2:   #f4f6fa;
+    --muted:     #6b7480;
+    --sat:       #1f9d55;   /* Satisfactory ✓ */
+    --def:       #d4351c;   /* Defective X */
+    --cor:       #c47f00;   /* Corrected ⊗ */
+    --row-h:     34px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--paper-2);
+    color: var(--ink);
+    line-height: 1.25;
+    padding: 0 0 120px;
+  }
+
+  /* ── BRAND BAR ── */
+  header {
+    background: var(--navy);
+    color: #fff;
+    border-bottom: 4px solid var(--navy-dk);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    letter-spacing: 2px;
+  }
+  .brand small {
+    display: block;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 1px;
+    opacity: .85;
+    text-transform: uppercase;
+  }
+  .progress-wrap { flex: 1; max-width: 320px; }
+  .progress-label {
+    font-size: 11px;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .progress-track {
+    height: 8px;
+    background: rgba(255,255,255,.22);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #fff;
+    transition: width .25s ease;
+  }
+
+  /* ── SHEET ── */
+  .sheet {
+    max-width: 960px;
+    margin: 20px auto;
+    background: var(--paper);
+    border: 1px solid var(--line);
+  }
+
+  .form-title {
+    text-align: center;
+    padding: 16px 16px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .form-title h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 24px;
+    letter-spacing: .5px;
+  }
+  .carriers {
+    margin-top: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px 4px;
+  }
+  .carriers .or { color: var(--muted); font-style: italic; padding: 0 2px; }
+  .carrier-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 4px;
+    user-select: none;
+  }
+  .carrier-pick:hover { background: var(--paper-2); }
+  .carrier-pick .box {
+    width: 15px; height: 15px;
+    border: 1.5px solid var(--ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1;
+  }
+  .carrier-pick.on .box::after { content: "✓"; }
+  .carrier-pick.on { font-weight: 700; }
+
+  /* ── HEADER FIELDS ── */
+  .hdr-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    border-bottom: 1px solid var(--line);
+  }
+  .fld {
+    border-right: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    padding: 7px 10px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hdr-grid .fld:nth-child(-n+3) { border-top: none; }
+  .fld:nth-child(3n) { border-right: none; }
+  .fld label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .fld input {
+    border: none;
+    border-bottom: 1px solid transparent;
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 1px 0;
+    background: transparent;
+    color: var(--ink);
+    width: 100%;
+  }
+  .fld input:focus { outline: none; border-bottom-color: var(--navy); }
+  .fld.location { grid-column: 1 / 3; }
+  .srt {
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 6px 12px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 1px;
+    background: var(--paper-2);
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 2px solid var(--line);
+  }
+  .legend-keys {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--line);
+    min-width: 168px;
+  }
+  .legend-keys .k {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--line);
+  }
+  .legend-keys .k:last-child { border-bottom: none; }
+  .legend-keys .sym {
+    width: 20px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .legend-keys .sym.sat { color: var(--sat); }
+  .legend-keys .sym.def { color: var(--def); }
+  .legend-keys .sym.cor { color: var(--cor); }
+  .legend-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-style: italic;
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: var(--navy);
+  }
+
+  /* ── CHECKLIST ── */
+  .section-head {
+    background: var(--navy);
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 5px 8px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 132px 38px 1fr;
+    border-bottom: 1px solid #e2e6ec;
+    min-height: var(--row-h);
+  }
+  .row:hover { background: var(--paper-2); }
+  .mark-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border-right: 1px solid #e2e6ec;
+    padding: 3px 4px;
+  }
+  .step-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--muted);
+    border-right: 1px solid #e2e6ec;
+  }
+  .desc-cell {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .desc-cell .sub {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  /* mark buttons */
+  .mbtn {
+    width: 26px; height: 26px;
+    border: 1.4px solid #c4ccd6;
+    background: #fff;
+    border-radius: 5px;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    color: #9aa4b0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .12s ease;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mbtn:hover { border-color: var(--navy); }
+  .mbtn.sat.on { background: var(--sat); border-color: var(--sat); color: #fff; }
+  .mbtn.def.on { background: var(--def); border-color: var(--def); color: #fff; }
+  .mbtn.cor.on { background: var(--cor); border-color: var(--cor); color: #fff; }
+
+  /* inline measurement fields */
+  .measure {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin-top: 6px;
+  }
+  .measure .m {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .measure input {
+    width: 46px;
+    border: none;
+    border-bottom: 1.4px solid #c4ccd6;
+    text-align: center;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    padding: 1px 0;
+  }
+  .measure input:focus { outline: none; border-bottom-color: var(--navy); }
+  .measure .unit { font-weight: 700; color: var(--ink); }
+
+  /* ── FOOTER ── */
+  .end-banner {
+    background: repeating-linear-gradient(135deg, var(--navy), var(--navy) 10px, var(--navy-dk) 10px, var(--navy-dk) 20px);
+    color: #fff;
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    letter-spacing: 4px;
+    font-size: 16px;
+    padding: 7px;
+  }
+  .sign-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    border-top: 1px solid var(--line);
+  }
+  .sign-grid .fld { border-top: none; }
+  .compliance {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--line);
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* ── ACTION BAR ── */
+  .actions {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    z-index: 60;
+  }
+  .btn {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: .3px;
+    padding: 12px 22px;
+    border-radius: 8px;
+    border: 2px solid var(--navy);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all .15s ease;
+  }
+  .btn-secondary { background: #fff; color: var(--navy); }
+  .btn-secondary:hover { background: var(--paper-2); }
+  .btn-primary { background: var(--navy); color: #fff; }
+  .btn-primary:hover { background: var(--navy-dk); border-color: var(--navy-dk); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+
+  .toast {
+    position: fixed;
+    bottom: 84px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: all .25s ease;
+    z-index: 70;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--def); }
+  .toast.ok  { background: var(--sat); }
+
+  @media (max-width: 640px) {
+    .hdr-grid { grid-template-columns: 1fr 1fr; }
+    .fld:nth-child(3n) { border-right: 1px solid var(--line); }
+    .fld:nth-child(2n) { border-right: none; }
+    .fld.location { grid-column: 1 / 3; }
+    .row { grid-template-columns: 104px 32px 1fr; }
+    .legend-keys { min-width: 132px; }
+    .brand { font-size: 20px; }
+    .progress-wrap { display: none; }
+    .btn { padding: 12px 16px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">W&amp;B<small>Service Company</small></div>
+  <div class="progress-wrap">
+    <div class="progress-label"><span>Inspection Progress</span><span id="progPct">0 / 38</span></div>
+    <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+  </div>
+</header>
+
+<div class="sheet">
+
+  <div class="form-title">
+    <h1>Van Trailer AVI Checklist 06-200-200</h1>
+    <div class="carriers" id="carriers">
+      <span class="carrier-pick" data-carrier="Schneider National Carriers, Inc"><span class="box"></span>Schneider National Carriers, Inc</span>
+      <span class="or">or</span>
+      <span class="carrier-pick" data-carrier="Midwest Logistics Systems"><span class="box"></span>Midwest Logistics Systems</span>
+      <span class="or">or</span>
+      <span class="carrier-pick" data-carrier="M&amp;M Transport Services, Inc"><span class="box"></span>M&amp;M Transport Services, Inc</span>
+      <span class="or">or</span>
+      <span class="carrier-pick" data-carrier="Cowan Systems, LLC"><span class="box"></span>Cowan Systems, LLC</span>
+    </div>
+  </div>
+
+  <div class="hdr-grid">
+    <div class="fld"><label>Unit Number</label><input id="f_unit" type="text"></div>
+    <div class="fld"><label>Date</label><input id="f_date" type="date"></div>
+    <div class="fld"><label>Work Order</label><input id="f_wo" type="text"></div>
+    <div class="fld location"><label>Location</label><input id="f_loc" type="text"></div>
+    <div class="srt">SRT = .8 hrs</div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-keys">
+      <div class="k"><span class="sym sat">✓</span> Satisfactory</div>
+      <div class="k"><span class="sym def">X</span> Defective</div>
+      <div class="k"><span class="sym cor">⊗</span> Corrected</div>
+    </div>
+    <div class="legend-title">DETAIL LINE</div>
+  </div>
+
+  <div id="checklist"></div>
+
+  <div class="end-banner">END PM / INSPECTION</div>
+
+  <div class="sign-grid">
+    <div class="fld"><label>Inspector Signature</label><input id="f_sig" type="text" placeholder="Type full name"></div>
+    <div class="fld"><label>Technician Number</label><input id="f_tech" type="text"></div>
+  </div>
+
+  <div class="compliance">
+    <span>The Inspection meets annual inspection requirements of FMCSA 49 CFR Part 396 Appendix A</span>
+    <span>Updated 11/11/2025</span>
+  </div>
+
+</div>
+
+<div class="actions">
+  <button class="btn btn-secondary" id="btnPdf">⬇ Download PDF</button>
+  <button class="btn btn-primary" id="btnSave">☁ Save to SharePoint</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CHECKLIST DATA — mirrors paper form steps 1–38
+// ═══════════════════════════════════════════════════════════
+const SECTIONS = [
+  { title: "Front Section", steps: [
+    [1,  "Verify PM due / Check TBO's (Yard tractor 3 ft. from the nose)"],
+    [2,  "Light plug (connect lights) inspect <u>all</u> lights (ABS – verify light operation; if inoperative, write up for ABS job)"],
+    [3,  "Glad-hands / Hoses / Connect to air supply (don't apply service brakes) release emergency brakes"],
+    [4,  "Manifest box and bag / Placard holder / Body / Decals / Registration / Data plate"],
+    [5,  "Coupler / king-pin"],
+    [6,  "Cycle Props two rotations up and down in high and low gear"],
+    [7,  "Grease prop legs"],
+    [8,  "Lubricate ratcheting crank handles"],
+    [9,  "Inspect Handle / Brackets / Legs / Cross frame / Mounting bolts"],
+  ]},
+  { title: "Right Side", steps: [
+    [10, "Placard holder / Body / Rail damage / Decals / Reflective tape / Door holdback chain"],
+    [11, "Marker lights / Turn lights / Apply dielectric grease mid-ship and beehive"],
+    [12, "Lug nuts / Wheel Studs / Hubcap bolts / Hubcaps / Wheels"],
+    [13, "Check and adjust tire pressure (100 PSI)"],
+    [14, "Inspect abnormal wear / tread depth, record below in 1/32 of an inch:", "tread", "Right side tires"],
+    [15, "Slider rail / Slider pins / Pull pins / Gussets / Slider handle / Spring hangers / Equalizer"],
+    [16, "Mud Flaps and Brackets"],
+  ]},
+  { title: "Rear Section", steps: [
+    [17, "Rear impact guard / Door hardware (security hardware) / Doors / Door seals"],
+    [18, "Placard holder / License plate and hardware / Decals / Reflective tape"],
+    [19, "Empty Trailer Only - Close Doors and perform light check for Interior leaks / Door seals"],
+    [20, "Empty Trailer Only - Roof bows / Flooring"],
+  ]},
+  { title: "Undercarriage", steps: [
+    [21, "Springs / Hangers / U-Bolts / Radius rods / Paint push rods"],
+    [22, "Valves / Hoses / Tanks / Air-line springs"],
+    [23, "Wheel seals / Maxi's / S-Cams / Brackets / Slacks / Shoe condition / Drums / Refer to SB 13-93 for brake chamber inspection details – Don't replace unless <8/32\" or below"],
+    [24, "Ensure speed sensor harness grommet is properly installed in the axle tube on MBS2 ABS systems"],
+    [25, "Grease cam bushings & slacks (brakes must be released)", null, null, "Use Mag #2 (chassis grease) / Lube slack adjuster clevis pins / Replace with greaseable clevis pin & grease if frozen or brake chamber or slack will be removed/replaced"],
+    [26, "Emergency application spring (spring brake) remove inspection plug"],
+    [27, "Verify no danger of cam-over before next PM"],
+  ]},
+  { title: "Left Side", steps: [
+    [28, "Placard holder / Body / Rail damage / Decals / Reflective tape / Door holdback chain"],
+    [29, "Marker lights / Turn lights / Apply dielectric grease mid-ship and beehive"],
+    [30, "Lug nuts / Wheel Studs / Hubcap bolts / Hubcaps / Wheels"],
+    [31, "Check and adjust tire pressure (100 PSI)"],
+    [32, "Inspect abnormal wear / tread depth, record below in 1/32 of an inch:", "tread", "Left side tires"],
+    [33, "Slider rail / Slider pins / Pull pins / Gussets / Slider handle / Spring hangers / Equalizer"],
+    [34, "Mud Flaps and Brackets"],
+  ]},
+  { title: "Roof", steps: [
+    [35, "Roof / Rivets / Crack / Holes / Check for Improper repairs - Inspect from sides, do not climb on roof"],
+  ]},
+  { title: "Final Steps", steps: [
+    [36, "Apply service brakes and check for air leaks / brake stroke / record brake lining remaining below:", "brake"],
+    [37, "PM decal"],
+    [38, "Update DST"],
+  ]},
+];
+
+const TOTAL_STEPS = 38;
+const marks = {};        // step -> 'sat' | 'def' | 'cor'
+let selectedCarrier = "";
+
+// build DOM
+const list = document.getElementById('checklist');
+SECTIONS.forEach(sec => {
+  const sh = document.createElement('div');
+  sh.className = 'section-head';
+  sh.textContent = sec.title;
+  list.appendChild(sh);
+
+  sec.steps.forEach(([num, desc, kind, label, sub]) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    // mark cell
+    const mc = document.createElement('div');
+    mc.className = 'mark-cell';
+    [['sat','✓'],['def','X'],['cor','⊗']].forEach(([k,sym]) => {
+      const b = document.createElement('button');
+      b.className = 'mbtn ' + k;
+      b.textContent = sym;
+      b.onclick = () => setMark(num, k, mc);
+      mc.appendChild(b);
+    });
+
+    const stc = document.createElement('div');
+    stc.className = 'step-cell';
+    stc.textContent = num;
+
+    const dc = document.createElement('div');
+    dc.className = 'desc-cell';
+    let html = '<div><span>' + desc + '</span>';
+    if (sub) html += '<span class="sub">' + sub + '</span>';
+
+    if (kind === 'tread') {
+      const side = label || '';
+      html += '<div class="measure">' +
+        '<span class="m">' + side + ' Front Inner <input data-m="' + num + '_fi" type="text"><span class="unit">/32"</span></span>' +
+        '<span class="m">Front Outer <input data-m="' + num + '_fo" type="text"><span class="unit">/32"</span></span>' +
+        '<span class="m">Rear Inner <input data-m="' + num + '_ri" type="text"><span class="unit">/32"</span></span>' +
+        '<span class="m">Rear Outer <input data-m="' + num + '_ro" type="text"><span class="unit">/32"</span></span>' +
+        '</div>';
+    }
+    if (kind === 'brake') {
+      html += '<div class="measure">' +
+        '<span class="m">Right Front <input data-m="36_rf" type="text"></span>' +
+        '<span class="m">Right Rear <input data-m="36_rr" type="text"></span>' +
+        '<span class="m">Left Front <input data-m="36_lf" type="text"></span>' +
+        '<span class="m">Left Rear <input data-m="36_lr" type="text"></span>' +
+        '</div>';
+    }
+    html += '</div>';
+    dc.innerHTML = html;
+
+    row.appendChild(mc);
+    row.appendChild(stc);
+    row.appendChild(dc);
+    list.appendChild(row);
+  });
+});
+
+function setMark(step, kind, cell) {
+  if (marks[step] === kind) {
+    delete marks[step];
+  } else {
+    marks[step] = kind;
+  }
+  [...cell.querySelectorAll('.mbtn')].forEach(b => {
+    b.classList.toggle('on', b.classList.contains(marks[step]));
+  });
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = Object.keys(marks).length;
+  const pct = Math.round((done / TOTAL_STEPS) * 100);
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progPct').textContent = done + ' / ' + TOTAL_STEPS;
+}
+
+// carrier selection (single choice)
+document.querySelectorAll('.carrier-pick').forEach(el => {
+  el.onclick = () => {
+    const already = el.classList.contains('on');
+    document.querySelectorAll('.carrier-pick').forEach(x => x.classList.remove('on'));
+    if (!already) { el.classList.add('on'); selectedCarrier = el.dataset.carrier; }
+    else selectedCarrier = "";
+  };
+});
+
+// default date = today
+document.getElementById('f_date').valueAsDate = new Date();
+
+// toast helper
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  setTimeout(() => t.className = 'toast', 3200);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PDF GENERATION
+// ═══════════════════════════════════════════════════════════
+function gv(id){ return (document.getElementById(id).value || '').trim(); }
+function mval(key){ const el = document.querySelector('[data-m="'+key+'"]'); return el ? (el.value||'').trim() : ''; }
+
+function buildPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const M = 40, W = 612;
+  let y = 44;
+  const navy = [26,31,143];
+
+  doc.setFont('helvetica','bold').setFontSize(14).setTextColor(...navy);
+  doc.text('Van Trailer AVI Checklist 06-200-200', W/2, y, {align:'center'}); y += 16;
+  doc.setFontSize(9).setTextColor(40);
+  doc.text('Carrier: ' + (selectedCarrier || '—'), W/2, y, {align:'center'}); y += 18;
+
+  doc.setFontSize(10).setTextColor(20);
+  doc.text('Unit #: ' + gv('f_unit'), M, y);
+  doc.text('Date: ' + gv('f_date'), M+200, y);
+  doc.text('Work Order: ' + gv('f_wo'), M+360, y); y += 14;
+  doc.text('Location: ' + gv('f_loc'), M, y);
+  doc.text('SRT = .8 hrs', W-M, y, {align:'right'}); y += 8;
+
+  doc.setDrawColor(...navy).setLineWidth(1).line(M, y, W-M, y); y += 16;
+
+  const symMap = { sat:'OK (Satisfactory)', def:'X (Defective)', cor:'Corrected' };
+
+  SECTIONS.forEach(sec => {
+    if (y > 720) { doc.addPage(); y = 44; }
+    doc.setFont('helvetica','bold').setFontSize(10).setTextColor(...navy);
+    doc.text(sec.title.toUpperCase(), M, y); y += 13;
+    doc.setFont('helvetica','normal').setFontSize(8.5).setTextColor(20);
+
+    sec.steps.forEach(([num, desc]) => {
+      if (y > 740) { doc.addPage(); y = 44; }
+      const mk = marks[num] ? symMap[marks[num]] : '—';
+      const clean = desc.replace(/<[^>]+>/g,'');
+      const txt = num + '. [' + mk + ']  ' + clean;
+      const lines = doc.splitTextToSize(txt, W - 2*M);
+      doc.text(lines, M, y);
+      y += lines.length * 10 + 2;
+
+      // measurements
+      if (num === 14 || num === 32) {
+        const side = num === 14 ? 'R' : 'L';
+        const t = '   Tread: FI '+mval(num+'_fi')+'/32  FO '+mval(num+'_fo')+'/32  RI '+mval(num+'_ri')+'/32  RO '+mval(num+'_ro')+'/32';
+        doc.setTextColor(90); doc.text(t, M, y); doc.setTextColor(20); y += 11;
+      }
+      if (num === 36) {
+        const t = '   Brake lining: RF '+mval('36_rf')+'  RR '+mval('36_rr')+'  LF '+mval('36_lf')+'  LR '+mval('36_lr');
+        doc.setTextColor(90); doc.text(t, M, y); doc.setTextColor(20); y += 11;
+      }
+    });
+    y += 6;
+  });
+
+  if (y > 700) { doc.addPage(); y = 44; }
+  y += 10;
+  doc.setDrawColor(...navy).line(M, y, W-M, y); y += 18;
+  doc.setFont('helvetica','bold').setFontSize(10).setTextColor(20);
+  doc.text('Inspector Signature: ' + gv('f_sig'), M, y);
+  doc.text('Technician #: ' + gv('f_tech'), W-M, y, {align:'right'}); y += 16;
+  doc.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
+  doc.text('The Inspection meets annual inspection requirements of FMCSA 49 CFR Part 396 Appendix A', M, y);
+
+  return doc;
+}
+
+function fileName() {
+  const unit = gv('f_unit') || 'Unit';
+  const date = gv('f_date') || new Date().toISOString().slice(0,10);
+  return 'AVI_' + unit.replace(/[^\w-]/g,'') + '_' + date + '.pdf';
+}
+
+document.getElementById('btnPdf').onclick = () => {
+  try { buildPDF().save(fileName()); toast('PDF downloaded', 'ok'); }
+  catch(e){ console.error(e); toast('PDF error: ' + e.message, 'err'); }
+};
+
+// ═══════════════════════════════════════════════════════════
+//  SHAREPOINT UPLOAD via Microsoft Graph + MSAL
+//  (same Azure app registration as the trailer refrigeration form)
+// ═══════════════════════════════════════════════════════════
+const MSAL_CONFIG = {
+  auth: {
+    clientId:    '22d9de4e-e09c-4371-b423-a91bb093cf44',
+    authority:   'https://login.microsoftonline.com/b0acb5c9-5242-45c3-bc06-ea052523d68a',
+    redirectUri: window.location.href.split('?')[0].split('#')[0],
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+};
+const GRAPH_SCOPES = ['Files.ReadWrite.All', 'Sites.ReadWrite.All'];
+const SP_HOSTNAME  = 'wbserv.sharepoint.com';
+const SP_SITE_PATH = '/sites/WBEquipmentInpsection';
+const SP_FOLDER    = 'Van Trailer AVI Inspections';   // new folder for this form
+
+let msalApp = null;
+try { msalApp = new msal.PublicClientApplication(MSAL_CONFIG); } catch(e){ console.error('MSAL init', e); }
+
+async function getToken() {
+  if (msalApp.initialize) { try { await msalApp.initialize(); } catch(e){} }
+  let account = msalApp.getAllAccounts()[0];
+  try {
+    if (account) {
+      const r = await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
+      return r.accessToken;
+    }
+  } catch(e) { /* fall through to popup */ }
+  const r = await msalApp.loginPopup({ scopes: GRAPH_SCOPES, prompt: 'select_account' });
+  return (await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: r.account })).accessToken;
+}
+
+async function graph(url, token, opts={}) {
+  const res = await fetch('https://graph.microsoft.com/v1.0' + url, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.headers||{}) }
+  });
+  if (!res.ok) throw new Error('Graph ' + res.status + ': ' + (await res.text()).slice(0,180));
+  return res.headers.get('content-type')?.includes('json') ? res.json() : res;
+}
+
+document.getElementById('btnSave').onclick = async () => {
+  const btn = document.getElementById('btnSave');
+  if (!msalApp) { toast('Sign-in unavailable on this host', 'err'); return; }
+  btn.disabled = true; btn.textContent = '… Signing in';
+  try {
+    const token = await getToken();
+    btn.textContent = '… Uploading';
+
+    const site = await graph('/sites/' + SP_HOSTNAME + ':' + SP_SITE_PATH, token);
+    const blob = buildPDF().output('blob');
+    const buf  = await blob.arrayBuffer();
+    const path = encodeURIComponent(SP_FOLDER) + '/' + encodeURIComponent(fileName());
+
+    await graph('/sites/' + site.id + '/drive/root:/' + path + ':/content', token, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: buf
+    });
+
+    toast('Saved to SharePoint ✓', 'ok');
+  } catch (e) {
+    console.error(e);
+    if ((e.message||'').toLowerCase().includes('popup'))
+      toast('Allow popups for this site, then try again', 'err');
+    else
+      toast('Upload failed: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '☁ Save to SharePoint';
+  }
+};
+</script>
+</body>
+</html>
