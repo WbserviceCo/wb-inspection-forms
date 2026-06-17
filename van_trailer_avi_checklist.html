@@ -373,8 +373,21 @@
     display: flex;
     gap: 12px;
     justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
     z-index: 60;
   }
+  .sendto {
+    flex: 1 1 240px;
+    max-width: 340px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .sendto:focus { outline: none; border-color: var(--navy); }
   .btn {
     font-family: 'Barlow', sans-serif;
     font-weight: 700;
@@ -489,8 +502,10 @@
 </div>
 
 <div class="actions">
-  <button class="btn btn-secondary" id="btnPdf">⬇ Download PDF</button>
-  <button class="btn btn-primary" id="btnEmail">✉ Download &amp; Email</button>
+  <input id="f_sendto" class="sendto" type="email" inputmode="email" autocomplete="email"
+         placeholder="Send to (email address)">
+  <button class="btn btn-secondary" id="btnPdf">⬇ PDF</button>
+  <button class="btn btn-primary" id="btnSend">✉ Send Inspection</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -739,26 +754,44 @@ document.getElementById('btnPdf').onclick = () => {
 };
 
 // ═══════════════════════════════════════════════════════════
-//  DOWNLOAD & EMAIL via Outlook (mailto:)
-//  Browsers can't attach a file to an email automatically, so this
-//  downloads the PDF first, then opens a pre-filled Outlook draft.
-//  The tech drags the just-downloaded PDF into the message.
+//  SEND INSPECTION — direct send via Azure Function + Graph
+//  Builds the PDF, base64-encodes it, and POSTs to the function,
+//  which emails it from the inspections mailbox. Works on iPhone.
 // ═══════════════════════════════════════════════════════════
-const EMAIL_TO = '';   // leave blank for tech to choose; set a fixed inbox here later if desired
+const FN_URL     = 'https://wb-inspection-mailer-g5dyg9bbb2dveeeq.centralus-01.azurewebsites.net/api/sendInspection?code=xwH0o1fYqBnN4RoHu5aiu0spysYfyXDa0j-Q5usmKSiCAzFuW4YTGQ==';
+const WB_SECRET  = 'Vrp!*vMArKaop8t.KtCBzn8XPpE9AB';
 
-document.getElementById('btnEmail').onclick = () => {
-  const btn = document.getElementById('btnEmail');
+function pdfToBase64(doc) {
+  // jsPDF datauristring -> strip the "data:...;base64," prefix
+  const uri = doc.output('datauristring');
+  return uri.substring(uri.indexOf(',') + 1);
+}
+
+document.getElementById('btnSend').onclick = async () => {
+  const btn = document.getElementById('btnSend');
+  const to = (document.getElementById('f_sendto').value || '').trim();
+
+  // basic recipient check
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+    toast('Enter a valid "Send to" email address', 'err');
+    document.getElementById('f_sendto').focus();
+    return;
+  }
+
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = '… Sending';
+
   try {
-    // 1) generate + download the PDF
-    const fn = fileName();
-    buildPDF().save(fn);
+    const doc  = buildPDF();
+    const fn   = fileName();
+    const b64  = pdfToBase64(doc);
 
-    // 2) build a pre-filled Outlook draft
     const unit = gv('f_unit') || 'Unit';
     const date = gv('f_date') || new Date().toISOString().slice(0,10);
     const carrier = selectedCarrier || '';
     const subject = 'Van Trailer AVI Checklist - ' + unit + ' - ' + date;
-    const bodyLines = [
+    const bodyText = [
       'Van Trailer AVI Checklist (06-200-200)',
       '',
       'Unit Number: ' + unit,
@@ -768,20 +801,41 @@ document.getElementById('btnEmail').onclick = () => {
       carrier ? ('Carrier: ' + carrier) : '',
       'Technician #: ' + (gv('f_tech') || ''),
       '',
-      'NOTE: Attach the downloaded PDF (' + fn + ') from your Downloads folder before sending.',
-    ].filter(Boolean);
-    const body = bodyLines.join('\r\n');
+      'PDF attached.',
+    ].filter(Boolean).join('\r\n');
 
-    const mailto = 'mailto:' + encodeURIComponent(EMAIL_TO) +
-      '?subject=' + encodeURIComponent(subject) +
-      '&body=' + encodeURIComponent(body);
+    const res = await fetch(FN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-wb-secret': WB_SECRET
+      },
+      body: JSON.stringify({
+        recipient: to,
+        subject: subject,
+        bodyText: bodyText,
+        fileName: fn,
+        pdfBase64: b64
+      })
+    });
 
-    // small delay so the download starts before the mail client steals focus
-    setTimeout(() => { window.location.href = mailto; }, 400);
-    toast('PDF downloaded - drag it into the email', 'ok');
+    if (res.ok) {
+      toast('Sent \u2713  Inspection emailed to ' + to, 'ok');
+      btn.textContent = '\u2713 Sent';
+      setTimeout(() => { btn.textContent = original; }, 2500);
+    } else {
+      let detail = '';
+      try { const j = await res.json(); detail = j.error || j.detail || ''; } catch(e){}
+      toast('Send failed (' + res.status + ') ' + detail + ' \u2014 try again', 'err');
+      btn.textContent = original;
+    }
   } catch (e) {
+    // network failure / no signal
     console.error(e);
-    toast('Error: ' + e.message, 'err');
+    toast('No connection \u2014 check signal and try again. Your entries are kept.', 'err');
+    btn.textContent = original;
+  } finally {
+    btn.disabled = false;
   }
 };
 </script>
