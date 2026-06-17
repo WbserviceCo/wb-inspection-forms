@@ -371,15 +371,23 @@
     box-shadow: 0 -4px 16px rgba(0,0,0,.08);
     padding: 12px 16px;
     display: flex;
-    gap: 12px;
-    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
     z-index: 60;
+  }
+  .send-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 640px;
+    flex-wrap: wrap;
   }
   .sendto {
     flex: 1 1 240px;
-    max-width: 340px;
+    max-width: 380px;
     padding: 12px 14px;
     border: 1.5px solid var(--line);
     border-radius: 8px;
@@ -388,6 +396,20 @@
     color: var(--ink);
   }
   .sendto:focus { outline: none; border-color: var(--navy); }
+  #btnSend { flex: 0 0 auto; }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 8px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .btn-link:hover { color: var(--navy); }
   .btn {
     font-family: 'Barlow', sans-serif;
     font-weight: 700;
@@ -502,10 +524,12 @@
 </div>
 
 <div class="actions">
-  <input id="f_sendto" class="sendto" type="email" inputmode="email" autocomplete="email"
-         placeholder="Send to (email address)">
-  <button class="btn btn-secondary" id="btnPdf">⬇ PDF</button>
-  <button class="btn btn-primary" id="btnSend">✉ Send Inspection</button>
+  <div class="send-row">
+    <input id="f_sendto" class="sendto" type="email" inputmode="email" autocomplete="email"
+           placeholder="Send to (email address)">
+    <button class="btn btn-primary" id="btnSend">✉ Send Inspection</button>
+  </div>
+  <button class="btn-link" id="btnPdf">⬇ Download PDF instead (for Teams, etc.)</button>
 </div>
 
 <div class="toast" id="toast"></div>
