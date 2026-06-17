@@ -6,7 +6,6 @@
 <title>OTR Schneider National — Van Trailer PM Checklist</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
   :root {
     --navy:      #1a1f8f;
@@ -322,10 +321,45 @@
     box-shadow: 0 -4px 16px rgba(0,0,0,.08);
     padding: 12px 16px;
     display: flex;
-    gap: 12px;
-    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
     z-index: 60;
   }
+  .send-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 640px;
+    flex-wrap: wrap;
+  }
+  .sendto {
+    flex: 1 1 240px;
+    max-width: 380px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .sendto:focus { outline: none; border-color: var(--navy); }
+  #btnSend { flex: 0 0 auto; }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 8px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .btn-link:hover { color: var(--navy); }
   .btn {
     font-family: 'Barlow', sans-serif;
     font-weight: 700;
@@ -435,8 +469,12 @@
 </div>
 
 <div class="actions">
-  <button class="btn btn-secondary" id="btnPdf">⬇ Download PDF</button>
-  <button class="btn btn-primary" id="btnSave">☁ Save to SharePoint</button>
+  <div class="send-row">
+    <input id="f_sendto" class="sendto" type="email" inputmode="email" autocomplete="email"
+           placeholder="Send to (email address)">
+    <button class="btn btn-primary" id="btnSend">✉ Send Inspection</button>
+  </div>
+  <button class="btn-link" id="btnPdf">⬇ Download PDF instead (for Teams, etc.)</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -656,75 +694,74 @@ document.getElementById('btnPdf').onclick = () => {
 };
 
 // ═══════════════════════════════════════════════════════════
-//  SHAREPOINT UPLOAD via Microsoft Graph + MSAL
-//  (same Azure app registration as the other inspection forms)
+//  SEND INSPECTION — direct send via Azure Function + Graph
+//  Builds the PDF, base64-encodes it, POSTs to the function which
+//  emails it from the inspections mailbox. Works on iPhone.
 // ═══════════════════════════════════════════════════════════
-const MSAL_CONFIG = {
-  auth: {
-    clientId:    '22d9de4e-e09c-4371-b423-a91bb093cf44',
-    authority:   'https://login.microsoftonline.com/b0acb5c9-5242-45c3-bc06-ea052523d68a',
-    redirectUri: window.location.href.split('?')[0].split('#')[0],
-  },
-  cache: { cacheLocation: 'sessionStorage' }
-};
-const GRAPH_SCOPES = ['Files.ReadWrite.All', 'Sites.ReadWrite.All'];
-const SP_HOSTNAME  = 'wbserv.sharepoint.com';
-const SP_SITE_PATH = '/sites/WBEquipmentInpsection';
-const SP_FOLDER    = 'Schneider Van Trailer PM Inspections';
+const FN_URL    = 'https://wb-inspection-mailer-g5dyg9bbb2dveeeq.centralus-01.azurewebsites.net/api/sendInspection?code=xwH0o1fYqBnN4RoHu5aiu0spysYfyXDa0j-Q5usmKSiCAzFuW4YTGQ==';
+const WB_SECRET = 'Vrp!*vMArKaop8t.KtCBzn8XPpE9AB';
 
-let msalApp = null;
-try { msalApp = new msal.PublicClientApplication(MSAL_CONFIG); } catch(e){ console.error('MSAL init', e); }
-
-async function getToken() {
-  if (msalApp.initialize) { try { await msalApp.initialize(); } catch(e){} }
-  let account = msalApp.getAllAccounts()[0];
-  try {
-    if (account) {
-      const r = await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
-      return r.accessToken;
-    }
-  } catch(e) { /* fall through to popup */ }
-  const r = await msalApp.loginPopup({ scopes: GRAPH_SCOPES, prompt: 'select_account' });
-  return (await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: r.account })).accessToken;
+function pdfToBase64(doc) {
+  const uri = doc.output('datauristring');
+  return uri.substring(uri.indexOf(',') + 1);
 }
 
-async function graph(url, token, opts={}) {
-  const res = await fetch('https://graph.microsoft.com/v1.0' + url, {
-    ...opts,
-    headers: { Authorization: 'Bearer ' + token, ...(opts.headers||{}) }
-  });
-  if (!res.ok) throw new Error('Graph ' + res.status + ': ' + (await res.text()).slice(0,180));
-  return res.headers.get('content-type')?.includes('json') ? res.json() : res;
-}
+document.getElementById('btnSend').onclick = async () => {
+  const btn = document.getElementById('btnSend');
+  const to  = (document.getElementById('f_sendto').value || '').trim();
 
-document.getElementById('btnSave').onclick = async () => {
-  const btn = document.getElementById('btnSave');
-  if (!msalApp) { toast('Sign-in unavailable on this host', 'err'); return; }
-  btn.disabled = true; btn.textContent = '… Signing in';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+    toast('Enter a valid "Send to" email address', 'err');
+    document.getElementById('f_sendto').focus();
+    return;
+  }
+
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = '… Sending';
+
   try {
-    const token = await getToken();
-    btn.textContent = '… Uploading';
+    const doc = buildPDF();
+    const fn  = fileName();
+    const b64 = pdfToBase64(doc);
 
-    const site = await graph('/sites/' + SP_HOSTNAME + ':' + SP_SITE_PATH, token);
-    const blob = buildPDF().output('blob');
-    const buf  = await blob.arrayBuffer();
-    const path = encodeURIComponent(SP_FOLDER) + '/' + encodeURIComponent(fileName());
+    const equip = gv('f_equip') || 'Equip';
+    const date  = gv('f_date')  || new Date().toISOString().slice(0,10);
+    const subject = 'Schneider Van Trailer PM Checklist - ' + equip + ' - ' + date;
+    const bodyText = [
+      'OTR Schneider National — Van Trailer PM Checklist',
+      '',
+      'Equipment: '  + equip,
+      'W/O Number: ' + (gv('f_wo') || ''),
+      'Date: '       + date,
+      'Location: '   + (gv('f_loc') || ''),
+      'Mechanic #: ' + (gv('f_mech') || ''),
+      '',
+      'PDF attached.'
+    ].filter(Boolean).join('\r\n');
 
-    await graph('/sites/' + site.id + '/drive/root:/' + path + ':/content', token, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/pdf' },
-      body: buf
+    const res = await fetch(FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-wb-secret': WB_SECRET },
+      body: JSON.stringify({ recipient: to, subject, bodyText, fileName: fn, pdfBase64: b64 })
     });
 
-    toast('Saved to SharePoint ✓', 'ok');
+    if (res.ok) {
+      toast('Sent \u2713  Inspection emailed to ' + to, 'ok');
+      btn.textContent = '\u2713 Sent';
+      setTimeout(() => { btn.textContent = original; }, 2500);
+    } else {
+      let detail = '';
+      try { const j = await res.json(); detail = j.error || j.detail || ''; } catch(e){}
+      toast('Send failed (' + res.status + ') ' + detail + ' \u2014 try again', 'err');
+      btn.textContent = original;
+    }
   } catch (e) {
     console.error(e);
-    if ((e.message||'').toLowerCase().includes('popup'))
-      toast('Allow popups for this site, then try again', 'err');
-    else
-      toast('Upload failed: ' + e.message, 'err');
+    toast('No connection \u2014 check signal and try again. Your entries are kept.', 'err');
+    btn.textContent = original;
   } finally {
-    btn.disabled = false; btn.textContent = '☁ Save to SharePoint';
+    btn.disabled = false;
   }
 };
 </script>
