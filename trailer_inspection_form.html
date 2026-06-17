@@ -19,7 +19,6 @@
 <title>Trailer Refrigeration – PM Inspection</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 
 <style>
   :root {
@@ -330,6 +329,43 @@
   }
   .btn-outline:hover { border-color: var(--white); background: rgba(255,255,255,.08); }
 
+  .send-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .sendto {
+    width: 240px;
+    max-width: 48vw;
+    padding: 10px 12px;
+    border: 1.5px solid rgba(255,255,255,.35);
+    border-radius: 5px;
+    background: rgba(255,255,255,.96);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    color: var(--navy);
+  }
+  .sendto::placeholder { color: #8089a0; }
+  .sendto:focus { outline: none; border-color: var(--white); box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+  .btn-link {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,.7);
+    font-family: 'Barlow', sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 2px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .btn-link:hover { color: var(--white); }
+  @media (max-width: 560px) {
+    .submit-bar { flex-wrap: wrap; }
+    .send-row { flex: 1 1 100%; }
+    .sendto { flex: 1 1 auto; max-width: none; }
+  }
+
   /* ── TOAST ── */
   #toast {
     position: fixed;
@@ -446,9 +482,13 @@
   <div class="submit-status">
     <strong id="bar-complete">0</strong> of <strong id="bar-total">0</strong> items marked
   </div>
-  <div style="display:flex;gap:10px">
-    <button class="btn btn-outline" onclick="downloadPDF()">Download PDF</button>
-    <button class="btn btn-primary" id="upload-btn" onclick="uploadToSharePoint()">Save to SharePoint</button>
+  <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+    <div class="send-row">
+      <input id="f_sendto" class="sendto" type="email" inputmode="email" autocomplete="email"
+             placeholder="Send to (email address)">
+      <button class="btn btn-primary" id="btnSend">✉ Send Inspection</button>
+    </div>
+    <button class="btn-link" id="btnPdf" onclick="downloadPDF()">⬇ Download PDF instead (for Teams, etc.)</button>
   </div>
 </div>
 
@@ -715,112 +755,76 @@ function downloadPDF() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SHAREPOINT UPLOAD via Microsoft Graph + MSAL
+// SEND INSPECTION — direct send via Azure Function + Graph
+// Builds the PDF, base64-encodes it, POSTs to the function which
+// emails it from the inspections mailbox. Works on iPhone.
 // ═══════════════════════════════════════════════════════════
-const MSAL_CONFIG = {
-  auth: {
-    clientId:    '22d9de4e-e09c-4371-b423-a91bb093cf44',
-    authority:   'https://login.microsoftonline.com/b0acb5c9-5242-45c3-bc06-ea052523d68a',
-    redirectUri:  window.location.href.split('?')[0]
-  },
-  cache: { cacheLocation: 'sessionStorage' }
-};
-const SHAREPOINT_SITE  = 'wbserv.sharepoint.com';
-const SHAREPOINT_PATH  = '/sites/WBEquipmentInpsection';
-const UPLOAD_FOLDER    = 'Trailer PM Inspections';
+const FN_URL    = 'https://wb-inspection-mailer-g5dyg9bbb2dveeeq.centralus-01.azurewebsites.net/api/sendInspection?code=xwH0o1fYqBnN4RoHu5aiu0spysYfyXDa0j-Q5usmKSiCAzFuW4YTGQ==';
+const WB_SECRET = 'Vrp!*vMArKaop8t.KtCBzn8XPpE9AB';
 
-const msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
-
-async function getGraphToken() {
-  const scopes = ['https://graph.microsoft.com/Files.ReadWrite', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
-  // Try silent first
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length > 0) {
-    try {
-      const resp = await msalInstance.acquireTokenSilent({ scopes, account: accounts[0] });
-      return resp.accessToken;
-    } catch {}
-  }
-  // Fall back to popup
-  const resp = await msalInstance.loginPopup({ scopes });
-  return resp.accessToken;
+function pdfToBase64(doc) {
+  const uri = doc.output('datauristring');
+  return uri.substring(uri.indexOf(',') + 1);
 }
 
-async function uploadToSharePoint() {
-  const btn = document.getElementById('upload-btn');
+document.getElementById('btnSend').onclick = async function () {
+  const btn = document.getElementById('btnSend');
+  const to  = (document.getElementById('f_sendto').value || '').trim();
+
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+    showToast('error', 'Invalid Email', 'Enter a valid "Send to" address.');
+    document.getElementById('f_sendto').focus();
+    return;
+  }
+
   btn.disabled = true;
-  btn.textContent = 'Uploading...';
-  showToast('', 'Connecting to SharePoint...', 'Sign in if prompted.');
+  const original = btn.textContent;
+  btn.textContent = '… Sending';
+  showToast('', 'Sending…', 'Emailing the inspection.');
 
   try {
-    const token    = await getGraphToken();
-    const doc      = buildPDF();
-    const pdfBytes = doc.output('arraybuffer');
-    const equip    = getFieldVal('f_equip') || 'Unknown';
-    const date     = getFieldVal('f_date')  || new Date().toISOString().split('T')[0];
+    const doc   = buildPDF();
+    const equip = getFieldVal('f_equip') || 'Unknown';
+    const date  = getFieldVal('f_date')  || new Date().toISOString().split('T')[0];
     const fileName = `Trailer_PM_${equip}_${date}.pdf`;
+    const b64   = pdfToBase64(doc);
 
-    // Get site ID
-    const siteResp = await fetch(
-      `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_SITE}:${SHAREPOINT_PATH}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const siteData = await siteResp.json();
-    if (!siteData.id) throw new Error('Could not find SharePoint site.');
-    const siteId = siteData.id;
+    const subject = 'Trailer Refrigeration PM Inspection - ' + equip + ' - ' + date;
+    const bodyText = [
+      'Trailer Refrigeration PM Inspection',
+      '',
+      'Equipment #: ' + equip,
+      'Customer: '   + (getFieldVal('f_customer') || ''),
+      'Date: '       + date,
+      'Serial #: '   + (getFieldVal('f_serial') || ''),
+      'Work Order: ' + (getFieldVal('f_wo') || ''),
+      'Technician: ' + (getFieldVal('f_tech') || ''),
+      '',
+      'PDF attached.'
+    ].filter(Boolean).join('\r\n');
 
-    // Get default drive
-    const driveResp = await fetch(
-      `https://graph.microsoft.com/v1.0/sites/${siteId}/drive`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const driveData = await driveResp.json();
-    const driveId = driveData.id;
+    const res = await fetch(FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-wb-secret': WB_SECRET },
+      body: JSON.stringify({ recipient: to, subject, bodyText, fileName, pdfBase64: b64 })
+    });
 
-    // Ensure folder exists
-    let folderId;
-    const folderCheckResp = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${UPLOAD_FOLDER}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (folderCheckResp.ok) {
-      folderId = (await folderCheckResp.json()).id;
+    if (res.ok) {
+      showToast('success', 'Sent \u2713', 'Inspection emailed to ' + to);
+      btn.textContent = '\u2713 Sent';
+      setTimeout(() => { btn.textContent = original; }, 2500);
     } else {
-      // Create folder
-      const createResp = await fetch(
-        `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: UPLOAD_FOLDER, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' })
-        }
-      );
-      folderId = (await createResp.json()).id;
+      let detail = '';
+      try { const j = await res.json(); detail = j.error || j.detail || ''; } catch(e){}
+      showToast('error', 'Send Failed (' + res.status + ')', (detail || 'Try again.'));
+      btn.textContent = original;
     }
-
-    // Upload PDF
-    showToast('', 'Uploading PDF...', fileName);
-    const uploadResp = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${folderId}:/${fileName}:/content`,
-      {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/pdf' },
-        body: pdfBytes
-      }
-    );
-    const uploadData = await uploadResp.json();
-    if (!uploadData.id) throw new Error('Upload failed — no file ID returned.');
-
-    showToast('success', 'Saved to SharePoint',
-      `<a href="${uploadData.webUrl}" target="_blank" style="color:var(--navy)">Open in SharePoint</a>`
-    );
-
-  } catch(err) {
-    showToast('error', 'Upload Failed', err.message || 'Could not reach SharePoint.');
+  } catch (err) {
     console.error(err);
+    showToast('error', 'No Connection', 'Check signal and try again. Your entries are kept.');
+    btn.textContent = original;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Save to SharePoint';
   }
 }
 
